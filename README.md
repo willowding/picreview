@@ -1,4 +1,4 @@
-~PicReview~
+## PicReview (https://willowding.github.io/picreview)
 为图片审核设计的多人实时协作工具。
 A real-time collaborative review tool for AI-generated picture book illustrations.
 
