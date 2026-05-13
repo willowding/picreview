@@ -41,8 +41,7 @@ main{padding:24px}
 .nav-btn{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.85);border:none;border-radius:50%;width:40px;height:40px;font-size:1.2rem;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 .nav-btn:hover{background:#fff}
 .nav-btn:disabled{opacity:.2;cursor:default}
-#btnPrev{left:10px}
-#btnNext{right:10px}
+#btnPrev{left:10px}#btnNext{right:10px}
 #navCounter{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.5);color:#fff;border-radius:12px;padding:2px 12px;font-size:.8rem}
 .modal-body{padding:18px 22px 22px}
 .modal-body h3{margin-bottom:6px;font-size:1rem;word-break:break-all}
@@ -67,34 +66,55 @@ main{padding:24px}
 .replaceBtn:hover{background:#bb2d3b}
 #emptyHint{text-align:center;color:#aaa;margin-top:60px;font-size:1rem}
 #loginMask{position:fixed;inset:0;background:linear-gradient(135deg,#1a73e8 0%,#0d47a1 100%);display:flex;align-items:center;justify-content:center;z-index:200}
-.login-box{background:#fff;border-radius:16px;padding:40px 36px;width:340px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.25)}
-.login-box h2{margin-bottom:8px;font-size:1.4rem;color:#1a73e8}
-.login-box p{color:#666;margin-bottom:20px;font-size:.9rem}
-.login-box input{width:100%;border:1px solid #ccc;border-radius:8px;padding:10px 14px;font-size:1rem;margin-bottom:14px;font-family:inherit}
+.login-box{background:#fff;border-radius:16px;padding:40px 36px;width:360px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.25)}
+.login-box h2{margin-bottom:6px;font-size:1.4rem;color:#1a73e8}
+.login-box .sub{color:#666;margin-bottom:22px;font-size:.9rem}
+.login-box input{width:100%;border:1px solid #ccc;border-radius:8px;padding:10px 14px;font-size:1rem;margin-bottom:18px;font-family:inherit}
 .login-box input:focus{outline:none;border-color:#1a73e8}
+.role-pick{display:flex;gap:12px;margin-bottom:22px}
+.role-card{flex:1;border:2px solid #ccc;border-radius:10px;padding:14px 8px;cursor:pointer;transition:all .15s;text-align:center}
+.role-card:hover{border-color:#1a73e8;background:#e8f0fe}
+.role-card.selected{border-color:#1a73e8;background:#e8f0fe}
+.role-card .icon{font-size:1.8rem;margin-bottom:6px}
+.role-card .name{font-weight:700;font-size:.95rem}
+.role-card .desc{font-size:.75rem;color:#666;margin-top:3px}
 .login-box button{width:100%;padding:10px;background:#1a73e8;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer}
 .login-box button:hover{background:#1558b0}
+.role-badge-uploader{background:#e8f0fe;color:#1a73e8;border-radius:12px;padding:2px 10px;font-size:.78rem;font-weight:700;margin-left:6px}
+.role-badge-reviewer{background:#d1e7dd;color:#0f5132;border-radius:12px;padding:2px 10px;font-size:.78rem;font-weight:700;margin-left:6px}
 </style>
 </head>
 <body>
 <div id="loginMask">
   <div class="login-box">
     <h2>PicReview</h2>
-    <p>请输入你的名字后进入</p>
-    <input id="nameInput" type="text" placeholder="例：小明、设计、PM" maxlength="20"/>
+    <p class="sub">请输入名字并选择本次任务</p>
+    <input id="nameInput" type="text" placeholder="你的名字" maxlength="20"/>
+    <div class="role-pick">
+      <div class="role-card" id="cardUploader" data-role="uploader">
+        <div class="icon">📤</div>
+        <div class="name">上传</div>
+        <div class="desc">上传 / 删除 / 替换</div>
+      </div>
+      <div class="role-card" id="cardReviewer" data-role="reviewer">
+        <div class="icon">🔍</div>
+        <div class="name">审核</div>
+        <div class="desc">通过 / 打回 / 评论</div>
+      </div>
+    </div>
     <button id="enterBtn">进入</button>
   </div>
 </div>
 <header>
   <h1>PicReview</h1>
-  <span id="roleLabel">你好，<strong id="currentName"></strong></span>
-  <button id="logoutBtn">切换用户</button>
+  <span id="roleLabel"></span>
+  <button id="logoutBtn">切换</button>
 </header>
 <main>
   <div id="uploadArea">
     <div style="font-size:2.5rem">📤</div>
     <p><strong>点击或拖拽图片到此处上传</strong></p>
-    <p>支持 JPG / PNG / WEBP，可多选，批量上传</p>
+    <p>支持 JPG / PNG / WEBP，可多选批量上传</p>
     <input id="fileInput" type="file" accept="image/*" multiple/>
     <div id="uploadProgress"><div class="bar" id="progressBar"></div></div>
     <p id="uploadStatus" style="margin-top:6px;font-size:.85rem;color:#555"></p>
@@ -120,16 +140,17 @@ main{padding:24px}
     <div class="modal-body">
       <h3 id="modalFilename"></h3>
       <p id="modalUploader" style="font-size:.78rem;color:#888;margin-bottom:12px"></p>
-      <p style="font-size:.83rem;font-weight:600;margin-bottom:8px">添加标签（可多选）</p>
-      <div class="tags">
-        <span class="tag" data-tag="构图问题">构图问题</span>
-        <span class="tag" data-tag="色彩问题">色彩问题</span>
-        <span class="tag" data-tag="文字错误">文字错误</span>
-        <span class="tag" data-tag="尺寸不对">尺寸不对</span>
-        <span class="tag" data-tag="内容不符">内容不符</span>
-        <span class="tag" data-tag="质量不足">质量不足</span>
+      <div id="reviewerSection">
+        <p style="font-size:.83rem;font-weight:600;margin-bottom:8px">添加标签（可多选）</p>
+        <div class="tags">
+          <span class="tag" data-tag="有描边">有描边</span>
+          <span class="tag" data-tag="豆豆眼">豆豆眼</span>
+          <span class="tag" data-tag="风格问题">风格问题</span>
+          <span class="tag" data-tag="形象/场景问题">形象/场景问题</span>
+          <span class="tag" data-tag="色彩/文字问题">色彩/文字问题</span>
+        </div>
+        <textarea id="commentInput" placeholder="写评论或打回原因（可选）"></textarea>
       </div>
-      <textarea id="commentInput" placeholder="写评论或打回原因（可选）"></textarea>
       <div id="commentsList" class="comments-list"></div>
       <div class="modal-actions">
         <button class="btn-delete" id="btnDelete">🗑 删除</button>
@@ -151,12 +172,52 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const sb = createClient("https://ptxkeywyujftzusjvrrh.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0eGtleXd5dWpmdHp1c2p2cnJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NTY3NTEsImV4cCI6MjA5NDEzMjc1MX0.Y5AUQR4emWXbBcW_NB_yGb2FrrjBgIA5DK-rcyaISqg");
 
 // 登录
-const loginMask=document.getElementById("loginMask"),nameInput=document.getElementById("nameInput"),enterBtn=document.getElementById("enterBtn"),currentNameEl=document.getElementById("currentName"),logoutBtn=document.getElementById("logoutBtn");
+const loginMask=document.getElementById("loginMask"),nameInput=document.getElementById("nameInput"),enterBtn=document.getElementById("enterBtn"),roleLabel=document.getElementById("roleLabel"),logoutBtn=document.getElementById("logoutBtn");
 let currentUser=localStorage.getItem("reviewUser")||"";
-function applyLogin(){if(!currentUser)return;loginMask.style.display="none";currentNameEl.textContent=currentUser;}
-enterBtn.addEventListener("click",()=>{const n=nameInput.value.trim();if(!n){nameInput.style.border="2px solid red";return;}currentUser=n;localStorage.setItem("reviewUser",n);applyLogin();});
+let currentRole=localStorage.getItem("reviewRole")||"";
+let selectedRole="";
+
+document.querySelectorAll(".role-card").forEach(c=>{
+  c.addEventListener("click",()=>{
+    document.querySelectorAll(".role-card").forEach(x=>x.classList.remove("selected"));
+    c.classList.add("selected");
+    selectedRole=c.dataset.role;
+  });
+});
+
+function applyLogin(){
+  if(!currentUser||!currentRole)return;
+  loginMask.style.display="none";
+  const badge=currentRole==="uploader"?'<span class="role-badge-uploader">上传方</span>':'<span class="role-badge-reviewer">审核员</span>';
+  roleLabel.innerHTML=currentUser+badge;
+  applyRoleUI();
+}
+
+function applyRoleUI(){
+  const isUploader=currentRole==="uploader";
+  const isReviewer=currentRole==="reviewer";
+  document.getElementById("uploadArea").style.display=isUploader?"block":"none";
+  document.getElementById("reviewerSection").style.display=isReviewer?"block":"none";
+  document.getElementById("btnApprove").style.display=isReviewer?"inline-block":"none";
+  document.getElementById("btnReject").style.display=isReviewer?"inline-block":"none";
+  document.getElementById("btnDelete").style.display=isUploader?"inline-block":"none";
+}
+
+enterBtn.addEventListener("click",()=>{
+  const n=nameInput.value.trim();
+  if(!n){nameInput.style.border="2px solid red";return;}
+  if(!selectedRole){document.querySelectorAll(".role-card").forEach(c=>c.style.border="2px solid red");return;}
+  currentUser=n;currentRole=selectedRole;
+  localStorage.setItem("reviewUser",n);localStorage.setItem("reviewRole",selectedRole);
+  applyLogin();
+});
 nameInput.addEventListener("keydown",e=>{if(e.key==="Enter")enterBtn.click();});
-logoutBtn.addEventListener("click",()=>{localStorage.removeItem("reviewUser");currentUser="";loginMask.style.display="flex";nameInput.value="";});
+logoutBtn.addEventListener("click",()=>{
+  localStorage.removeItem("reviewUser");localStorage.removeItem("reviewRole");
+  currentUser="";currentRole="";selectedRole="";
+  document.querySelectorAll(".role-card").forEach(c=>c.classList.remove("selected"));
+  loginMask.style.display="flex";nameInput.value="";
+});
 applyLogin();
 
 // 上传（4张并行）
@@ -167,32 +228,26 @@ uploadArea.addEventListener("dragleave",()=>{uploadArea.style.background="";});
 uploadArea.addEventListener("drop",e=>{e.preventDefault();uploadArea.style.background="";handleFiles([...e.dataTransfer.files]);});
 fileInput.addEventListener("change",()=>handleFiles([...fileInput.files]));
 async function handleFiles(files){
-  if(!currentUser){alert("请先输入名字");return;}
   const imgs=files.filter(f=>f.type.startsWith("image/"));
   if(!imgs.length)return;
   uploadProgress.style.display="block";
-  let done=0;
-  const total=imgs.length;
+  let done=0;const total=imgs.length;
   async function uploadOne(f){
     const path=Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+f.name;
     const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
-    if(e){console.error("上传失败",f.name,e.message);done++;return;}
+    if(e){console.error(f.name,e.message);done++;return;}
     const{data:u}=sb.storage.from("images").getPublicUrl(path);
     await sb.from("images").insert({url:u.publicUrl,storage_path:path,filename:f.name,uploader:currentUser,status:"pending",tags:[],comments:[],created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
-    done++;
-    progressBar.style.width=(done/total*100)+"%";
+    done++;progressBar.style.width=(done/total*100)+"%";
     uploadStatus.textContent="上传中 "+done+" / "+total;
   }
-  const BATCH=4;
-  for(let i=0;i<imgs.length;i+=BATCH){
-    await Promise.allSettled(imgs.slice(i,i+BATCH).map(uploadOne));
-  }
-  uploadStatus.textContent="全部上传完成，共 "+total+" 张";
+  for(let i=0;i<imgs.length;i+=4)await Promise.allSettled(imgs.slice(i,i+4).map(uploadOne));
+  uploadStatus.textContent="完成，共 "+total+" 张";
   setTimeout(()=>{uploadProgress.style.display="none";progressBar.style.width="0";uploadStatus.textContent="";},3000);
   fileInput.value="";
 }
 
-// 加载图片
+// 图片列表
 const grid=document.getElementById("grid"),emptyHint=document.getElementById("emptyHint"),statsBar=document.getElementById("statsBar");
 let allDocs=[],activeFilter="all";
 async function loadImages(){const{data}=await sb.from("images").select("*").order("created_at",{ascending:false});allDocs=data||[];renderGrid();}
@@ -206,7 +261,7 @@ function renderGrid(){
   statsBar.textContent="共 "+allDocs.length+" 张 | 待审 "+p+" | 通过 "+a+" | 打回 "+r;
   filtered.forEach(item=>{
     const card=document.createElement("div");card.className="card";
-    card.innerHTML='<img src="'+item.url+'" alt="" loading="lazy"/><div class="info"><span class="badge badge-'+item.status+'">'+statusLabel(item.status)+'</span><div class="filename">'+(item.filename||"图片")+'</div><div style="font-size:.72rem;color:#888;margin-top:2px">'+item.uploader+'</div>'+(item.status==="rejected"&&item.reject_reason?'<div class="reject-reason">'+item.reject_reason+'</div>':'')+'</div>';
+    card.innerHTML='<img src="'+item.url+'" alt="" loading="lazy"/><div class="info"><span class="badge badge-'+item.status+'">'+statusLabel(item.status)+'</span><div class="filename">'+(item.filename||"图片")+'</div><div style="font-size:.72rem;color:#888;margin-top:2px">'+(item.uploader||"")+'</div>'+(item.status==="rejected"&&item.reject_reason?'<div class="reject-reason">'+item.reject_reason+'</div>':'')+'</div>';
     card.addEventListener("click",()=>openModal(item,filtered));grid.appendChild(card);
   });
 }
@@ -217,48 +272,28 @@ document.querySelectorAll(".filter-bar button").forEach(btn=>{btn.addEventListen
 const modal=document.getElementById("modal"),modalImg=document.getElementById("modalImg"),modalFilename=document.getElementById("modalFilename"),modalUploader=document.getElementById("modalUploader"),commentInput=document.getElementById("commentInput"),commentsList=document.getElementById("commentsList"),btnApprove=document.getElementById("btnApprove"),btnReject=document.getElementById("btnReject"),btnDelete=document.getElementById("btnDelete"),modalClose=document.getElementById("modalClose"),replaceSection=document.getElementById("replaceSection"),replaceInput=document.getElementById("replaceInput"),replaceBtn=document.getElementById("replaceBtn"),replaceStatus=document.getElementById("replaceStatus"),btnPrev=document.getElementById("btnPrev"),btnNext=document.getElementById("btnNext"),navCounter=document.getElementById("navCounter");
 let selectedTags=[],currentDocId=null,currentList=[],currentIndex=-1;
 
-function openModal(item,list){
-  currentList=list||getFiltered();
-  currentIndex=currentList.findIndex(d=>d.id===item.id);
-  loadItem(item);
-  modal.classList.add("open");
-}
+function openModal(item,list){currentList=list||getFiltered();currentIndex=currentList.findIndex(d=>d.id===item.id);loadItem(item);modal.classList.add("open");}
 function loadItem(item){
   currentDocId=item.id;selectedTags=[];
-  modalImg.src=item.url;
-  modalFilename.textContent=item.filename||"图片";
+  modalImg.src=item.url;modalFilename.textContent=item.filename||"图片";
   modalUploader.textContent="上传人："+(item.uploader||"—")+"  |  状态："+statusLabel(item.status);
-  commentInput.value="";replaceStatus.textContent="";commentInput.style.border="";
+  if(commentInput)commentInput.value="";replaceStatus.textContent="";if(commentInput)commentInput.style.border="";
   document.querySelectorAll(".tag").forEach(t=>t.classList.remove("selected"));
   commentsList.innerHTML="";
   (item.comments||[]).slice().reverse().forEach(c=>{
     const div=document.createElement("div");div.className="comment-item";
-    div.innerHTML='<div class="meta">'+c.user+" · "+fmt(c.time)+'</div>'+c.text+(c.tags&&c.tags.length?'<div style="margin-top:3px">'+c.tags.map(t=>'<span class="badge badge-pending">'+t+'</span>').join(" ")+'</div>':"");
+    div.innerHTML='<div class="meta">'+c.user+" · "+fmt(c.time)+(c.action==="approved"?' ✅':'')+(c.action==="rejected"?' ❌':'')+'</div>'+(c.text||"")+(c.tags&&c.tags.length?'<div style="margin-top:3px">'+c.tags.map(t=>'<span class="badge badge-pending">'+t+'</span>').join(" ")+'</div>':"");
     commentsList.appendChild(div);
   });
-  replaceSection.style.display=(item.status==="rejected"&&item.uploader===currentUser)?"block":"none";
-  const isMine=item.uploader===currentUser;
-  btnApprove.disabled=btnReject.disabled=isMine;
-  btnApprove.style.opacity=btnReject.style.opacity=isMine?".4":"1";
-  btnApprove.title=btnReject.title=isMine?"不能审核自己上传的图片":"";
-  btnPrev.disabled=currentIndex<=0;
-  btnNext.disabled=currentIndex>=currentList.length-1;
+  // 替换区：上传方且被打回
+  replaceSection.style.display=(currentRole==="uploader"&&item.status==="rejected")?"block":"none";
+  btnPrev.disabled=currentIndex<=0;btnNext.disabled=currentIndex>=currentList.length-1;
   navCounter.textContent=(currentIndex+1)+" / "+currentList.length;
 }
-function navigate(dir){
-  const ni=currentIndex+dir;
-  if(ni<0||ni>=currentList.length)return;
-  currentIndex=ni;
-  loadItem(currentList[ni]);
-}
+function navigate(dir){const ni=currentIndex+dir;if(ni<0||ni>=currentList.length)return;currentIndex=ni;loadItem(currentList[ni]);}
 btnPrev.addEventListener("click",()=>navigate(-1));
 btnNext.addEventListener("click",()=>navigate(1));
-document.addEventListener("keydown",e=>{
-  if(!modal.classList.contains("open"))return;
-  if(e.key==="ArrowLeft")navigate(-1);
-  if(e.key==="ArrowRight")navigate(1);
-  if(e.key==="Escape")closeModal();
-});
+document.addEventListener("keydown",e=>{if(!modal.classList.contains("open"))return;if(e.key==="ArrowLeft")navigate(-1);if(e.key==="ArrowRight")navigate(1);if(e.key==="Escape")closeModal();});
 modalClose.addEventListener("click",closeModal);
 modal.addEventListener("click",e=>{if(e.target===modal)closeModal();});
 function closeModal(){modal.classList.remove("open");currentDocId=null;}
@@ -270,11 +305,10 @@ btnReject.addEventListener("click",async()=>{
   if(!currentDocId)return;
   const reason=commentInput.value.trim();
   if(!reason&&!selectedTags.length){commentInput.style.border="2px solid red";commentInput.placeholder="打回时请填写原因或选择标签";return;}
-  commentInput.style.border="";
-  await submitReview("rejected",reason||selectedTags.join("、"));
+  commentInput.style.border="";await submitReview("rejected",reason||selectedTags.join("、"));
 });
 async function submitReview(status,rejectReason){
-  const comment=commentInput.value.trim();const item=allDocs.find(d=>d.id===currentDocId);const nc=[...(item?.comments||[])];
+  const comment=commentInput?commentInput.value.trim():"";const item=allDocs.find(d=>d.id===currentDocId);const nc=[...(item?.comments||[])];
   if(comment||selectedTags.length)nc.push({user:currentUser,text:comment,tags:[...selectedTags],time:new Date().toISOString(),action:status});
   await sb.from("images").update({status,reject_reason:status==="rejected"?rejectReason:"",tags:selectedTags,comments:nc,reviewed_by:currentUser,updated_at:new Date().toISOString()}).eq("id",currentDocId);
   closeModal();
@@ -282,9 +316,8 @@ async function submitReview(status,rejectReason){
 
 btnDelete.addEventListener("click",async()=>{
   if(!currentDocId)return;
-  if(!confirm("确定删除这张图片？此操作不可撤销。"))return;
-  await sb.from("images").delete().eq("id",currentDocId);
-  closeModal();
+  if(!confirm("确定删除这张图片？"))return;
+  await sb.from("images").delete().eq("id",currentDocId);closeModal();
 });
 
 replaceBtn.addEventListener("click",async()=>{
