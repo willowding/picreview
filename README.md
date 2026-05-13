@@ -3,8 +3,7 @@
 A real-time collaborative review tool for AI-generated picture book illustrations.
 
 ## 使用方法 / How to Use
-打开网址，输入名字，选择角色后进入。
-Open the link, enter your name, and choose your role.
+打开网址，输入名字，选择角色后进入。Open the link, enter your name, and choose your role.
 | 角色 Role | 权限 Permissions |
 |-----------|-----------------|
 | **上传方 Uploader** | 上传 / 删除 / 替换图片 Upload / Delete / Replace images |
@@ -21,10 +20,8 @@ Open the link, enter your name, and choose your role.
 - 无敏感或侵权元素 No sensitive or copyrighted content
 
 ## 操作说明 / Tips
-- 弹窗内按 ← → 键可左右切换图片，无需逐个关闭
-- Use ← → arrow keys to navigate between images in the preview
-- 批量上传自动检测重复，相同图片会跳过
-- Duplicate images are detected automatically and skipped
+- 弹窗内按 ← → 键可左右切换图片，无需逐个关闭 Use ← → arrow keys to navigate between images in the preview
+- 批量上传自动检测重复，相同图片会跳过 Duplicate images are detected automatically and skipped
 
 ## 技术栈 / Stack
 HTML + JavaScript · Supabase · GitHub Pages
