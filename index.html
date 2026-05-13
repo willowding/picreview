@@ -227,23 +227,36 @@ uploadArea.addEventListener("dragover",e=>{e.preventDefault();uploadArea.style.b
 uploadArea.addEventListener("dragleave",()=>{uploadArea.style.background="";});
 uploadArea.addEventListener("drop",e=>{e.preventDefault();uploadArea.style.background="";handleFiles([...e.dataTransfer.files]);});
 fileInput.addEventListener("change",()=>handleFiles([...fileInput.files]));
+async function hashFile(file){
+  const buf=await file.arrayBuffer();
+  const hashBuf=await crypto.subtle.digest("SHA-256",buf);
+  return Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
 async function handleFiles(files){
   const imgs=files.filter(f=>f.type.startsWith("image/"));
   if(!imgs.length)return;
   uploadProgress.style.display="block";
-  let done=0;const total=imgs.length;
+  let done=0,skipped=0;const total=imgs.length;
   async function uploadOne(f){
+    const hash=await hashFile(f);
+    const{data:existing}=await sb.from("images").select("id,filename").eq("file_hash",hash).limit(1);
+    if(existing&&existing.length>0){
+      skipped++;done++;progressBar.style.width=(done/total*100)+"%";
+      uploadStatus.textContent="跳过重复："+f.name+"（与已有「"+(existing[0].filename||"图片")+"」相同）";
+      return;
+    }
     const path=Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+f.name;
     const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
     if(e){console.error(f.name,e.message);done++;return;}
     const{data:u}=sb.storage.from("images").getPublicUrl(path);
-    await sb.from("images").insert({url:u.publicUrl,storage_path:path,filename:f.name,uploader:currentUser,status:"pending",tags:[],comments:[],created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+    await sb.from("images").insert({url:u.publicUrl,storage_path:path,filename:f.name,file_hash:hash,uploader:currentUser,status:"pending",tags:[],comments:[],created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
     done++;progressBar.style.width=(done/total*100)+"%";
     uploadStatus.textContent="上传中 "+done+" / "+total;
   }
   for(let i=0;i<imgs.length;i+=4)await Promise.allSettled(imgs.slice(i,i+4).map(uploadOne));
-  uploadStatus.textContent="完成，共 "+total+" 张";
-  setTimeout(()=>{uploadProgress.style.display="none";progressBar.style.width="0";uploadStatus.textContent="";},3000);
+  const uploaded=total-skipped;
+  uploadStatus.textContent="完成：上传 "+uploaded+" 张"+(skipped>0?"，跳过重复 "+skipped+" 张":"");
+  setTimeout(()=>{uploadProgress.style.display="none";progressBar.style.width="0";uploadStatus.textContent="";},4000);
   fileInput.value="";
 }
 
