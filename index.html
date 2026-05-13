@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PicReview</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:#f0f2f5;color:#222;min-height:100vh}
+header{background:#1a73e8;color:#fff;padding:14px 24px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+header h1{font-size:1.2rem;flex:1}
+#roleLabel{background:rgba(255,255,255,.2);border-radius:20px;padding:4px 14px;font-size:.85rem}
+#logoutBtn{background:#fff;color:#1a73e8;border:none;border-radius:20px;padding:5px 14px;cursor:pointer;font-size:.85rem;font-weight:600}
+main{padding:24px}
+.filter-bar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.filter-bar button{padding:6px 18px;border:2px solid #ccc;background:#fff;border-radius:20px;cursor:pointer;font-size:.9rem;transition:all .15s}
+.filter-bar button.active,.filter-bar button:hover{border-color:#1a73e8;color:#1a73e8;background:#e8f0fe}
+#statsBar{margin-left:auto;font-size:.85rem;color:#666}
+#uploadArea{border:2px dashed #1a73e8;border-radius:12px;padding:28px;text-align:center;margin-bottom:28px;background:#fff;cursor:pointer;transition:background .15s}
+#uploadArea:hover{background:#e8f0fe}
+#uploadArea p{color:#555;margin-top:8px;font-size:.9rem}
+#fileInput{display:none}
+#uploadProgress{margin-top:10px;height:8px;background:#e0e0e0;border-radius:4px;display:none}
+#uploadProgress .bar{height:100%;background:#1a73e8;border-radius:4px;width:0;transition:width .15s}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.card{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);cursor:pointer;transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-3px);box-shadow:0 6px 16px rgba(0,0,0,.15)}
+.card img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.card .info{padding:10px 12px}
+.card .filename{font-size:.78rem;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{display:inline-block;border-radius:12px;padding:2px 10px;font-size:.73rem;font-weight:700;margin-bottom:4px}
+.badge-pending{background:#fff3cd;color:#856404}
+.badge-approved{background:#d1e7dd;color:#0f5132}
+.badge-rejected{background:#f8d7da;color:#842029}
+.card .reject-reason{font-size:.73rem;color:#842029;margin-top:4px;word-break:break-all}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:20px}
+#modal.open{display:flex}
+.modal-box{background:#fff;border-radius:16px;max-width:820px;width:100%;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column}
+.modal-img-wrap{background:#111;border-radius:16px 16px 0 0;overflow:hidden;max-height:56vh;display:flex;align-items:center;justify-content:center;position:relative}
+.modal-img-wrap img{max-width:100%;max-height:56vh;object-fit:contain}
+.nav-btn{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.85);border:none;border-radius:50%;width:40px;height:40px;font-size:1.2rem;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.nav-btn:hover{background:#fff}
+.nav-btn:disabled{opacity:.2;cursor:default}
+#btnPrev{left:10px}
+#btnNext{right:10px}
+#navCounter{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.5);color:#fff;border-radius:12px;padding:2px 12px;font-size:.8rem}
+.modal-body{padding:18px 22px 22px}
+.modal-body h3{margin-bottom:6px;font-size:1rem;word-break:break-all}
+.tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tag{padding:4px 12px;border:2px solid #ccc;border-radius:20px;cursor:pointer;font-size:.82rem;transition:all .15s;background:#fff}
+.tag.selected{border-color:#1a73e8;background:#e8f0fe;color:#1a73e8;font-weight:700}
+.modal-body textarea{width:100%;border:1px solid #ccc;border-radius:8px;padding:10px;font-size:.88rem;resize:vertical;min-height:60px;font-family:inherit;margin-bottom:14px}
+.modal-body textarea:focus{outline:none;border-color:#1a73e8}
+.comments-list{margin-bottom:14px;max-height:140px;overflow-y:auto}
+.comment-item{background:#f8f9fa;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:.83rem}
+.comment-item .meta{color:#888;font-size:.73rem;margin-bottom:3px}
+.modal-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn-approve{padding:8px 22px;background:#198754;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.92rem;font-weight:700}
+.btn-approve:hover{background:#157347}
+.btn-reject{padding:8px 22px;background:#dc3545;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.92rem;font-weight:700}
+.btn-reject:hover{background:#bb2d3b}
+.btn-close{padding:8px 18px;background:#e9ecef;color:#333;border:none;border-radius:8px;cursor:pointer;font-size:.92rem}
+.btn-close:hover{background:#dee2e6}
+.btn-delete{padding:8px 18px;background:#fff;color:#dc3545;border:2px solid #dc3545;border-radius:8px;cursor:pointer;font-size:.92rem;margin-right:auto}
+.btn-delete:hover{background:#f8d7da}
+.replaceBtn{width:100%;margin-top:8px;padding:7px;background:#dc3545;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:600}
+.replaceBtn:hover{background:#bb2d3b}
+#emptyHint{text-align:center;color:#aaa;margin-top:60px;font-size:1rem}
+#loginMask{position:fixed;inset:0;background:linear-gradient(135deg,#1a73e8 0%,#0d47a1 100%);display:flex;align-items:center;justify-content:center;z-index:200}
+.login-box{background:#fff;border-radius:16px;padding:40px 36px;width:340px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.25)}
+.login-box h2{margin-bottom:8px;font-size:1.4rem;color:#1a73e8}
+.login-box p{color:#666;margin-bottom:20px;font-size:.9rem}
+.login-box input{width:100%;border:1px solid #ccc;border-radius:8px;padding:10px 14px;font-size:1rem;margin-bottom:14px;font-family:inherit}
+.login-box input:focus{outline:none;border-color:#1a73e8}
+.login-box button{width:100%;padding:10px;background:#1a73e8;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer}
+.login-box button:hover{background:#1558b0}
+</style>
+</head>
+<body>
+<div id="loginMask">
+  <div class="login-box">
+    <h2>PicReview</h2>
+    <p>请输入你的名字后进入</p>
+    <input id="nameInput" type="text" placeholder="例：小明、设计、PM" maxlength="20"/>
+    <button id="enterBtn">进入</button>
+  </div>
+</div>
+<header>
+  <h1>PicReview</h1>
+  <span id="roleLabel">你好，<strong id="currentName"></strong></span>
+  <button id="logoutBtn">切换用户</button>
+</header>
+<main>
+  <div id="uploadArea">
+    <div style="font-size:2.5rem">📤</div>
+    <p><strong>点击或拖拽图片到此处上传</strong></p>
+    <p>支持 JPG / PNG / WEBP，可多选，批量上传</p>
+    <input id="fileInput" type="file" accept="image/*" multiple/>
+    <div id="uploadProgress"><div class="bar" id="progressBar"></div></div>
+    <p id="uploadStatus" style="margin-top:6px;font-size:.85rem;color:#555"></p>
+  </div>
+  <div class="filter-bar">
+    <button class="active" data-filter="all">全部</button>
+    <button data-filter="pending">待审核</button>
+    <button data-filter="approved">已通过</button>
+    <button data-filter="rejected">已打回</button>
+    <span id="statsBar"></span>
+  </div>
+  <div id="grid"></div>
+  <div id="emptyHint" style="display:none">暂无图片</div>
+</main>
+<div id="modal">
+  <div class="modal-box">
+    <div class="modal-img-wrap">
+      <button class="nav-btn" id="btnPrev">&#8592;</button>
+      <img id="modalImg" src="" alt="预览图"/>
+      <button class="nav-btn" id="btnNext">&#8594;</button>
+      <span id="navCounter"></span>
+    </div>
+    <div class="modal-body">
+      <h3 id="modalFilename"></h3>
+      <p id="modalUploader" style="font-size:.78rem;color:#888;margin-bottom:12px"></p>
+      <p style="font-size:.83rem;font-weight:600;margin-bottom:8px">添加标签（可多选）</p>
+      <div class="tags">
+        <span class="tag" data-tag="构图问题">构图问题</span>
+        <span class="tag" data-tag="色彩问题">色彩问题</span>
+        <span class="tag" data-tag="文字错误">文字错误</span>
+        <span class="tag" data-tag="尺寸不对">尺寸不对</span>
+        <span class="tag" data-tag="内容不符">内容不符</span>
+        <span class="tag" data-tag="质量不足">质量不足</span>
+      </div>
+      <textarea id="commentInput" placeholder="写评论或打回原因（可选）"></textarea>
+      <div id="commentsList" class="comments-list"></div>
+      <div class="modal-actions">
+        <button class="btn-delete" id="btnDelete">🗑 删除</button>
+        <button class="btn-close" id="modalClose">关闭</button>
+        <button class="btn-reject" id="btnReject">✗ 打回</button>
+        <button class="btn-approve" id="btnApprove">✓ 通过</button>
+      </div>
+      <div id="replaceSection" style="display:none;margin-top:14px;border-top:1px solid #eee;padding-top:14px">
+        <p style="font-size:.83rem;color:#842029;margin-bottom:8px">⚠ 此图已被打回，上传替换图片：</p>
+        <input id="replaceInput" type="file" accept="image/*"/>
+        <button class="replaceBtn" id="replaceBtn" style="margin-top:8px">上传替换图片</button>
+        <p id="replaceStatus" style="font-size:.8rem;margin-top:6px"></p>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+const sb = createClient("https://ptxkeywyujftzusjvrrh.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0eGtleXd5dWpmdHp1c2p2cnJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NTY3NTEsImV4cCI6MjA5NDEzMjc1MX0.Y5AUQR4emWXbBcW_NB_yGb2FrrjBgIA5DK-rcyaISqg");
+
+// 登录
+const loginMask=document.getElementById("loginMask"),nameInput=document.getElementById("nameInput"),enterBtn=document.getElementById("enterBtn"),currentNameEl=document.getElementById("currentName"),logoutBtn=document.getElementById("logoutBtn");
+let currentUser=localStorage.getItem("reviewUser")||"";
+function applyLogin(){if(!currentUser)return;loginMask.style.display="none";currentNameEl.textContent=currentUser;}
+enterBtn.addEventListener("click",()=>{const n=nameInput.value.trim();if(!n){nameInput.style.border="2px solid red";return;}currentUser=n;localStorage.setItem("reviewUser",n);applyLogin();});
+nameInput.addEventListener("keydown",e=>{if(e.key==="Enter")enterBtn.click();});
+logoutBtn.addEventListener("click",()=>{localStorage.removeItem("reviewUser");currentUser="";loginMask.style.display="flex";nameInput.value="";});
+applyLogin();
+
+// 上传（4张并行）
+const uploadArea=document.getElementById("uploadArea"),fileInput=document.getElementById("fileInput"),progressBar=document.getElementById("progressBar"),uploadProgress=document.getElementById("uploadProgress"),uploadStatus=document.getElementById("uploadStatus");
+uploadArea.addEventListener("click",()=>fileInput.click());
+uploadArea.addEventListener("dragover",e=>{e.preventDefault();uploadArea.style.background="#dbeafe";});
+uploadArea.addEventListener("dragleave",()=>{uploadArea.style.background="";});
+uploadArea.addEventListener("drop",e=>{e.preventDefault();uploadArea.style.background="";handleFiles([...e.dataTransfer.files]);});
+fileInput.addEventListener("change",()=>handleFiles([...fileInput.files]));
+async function handleFiles(files){
+  if(!currentUser){alert("请先输入名字");return;}
+  const imgs=files.filter(f=>f.type.startsWith("image/"));
+  if(!imgs.length)return;
+  uploadProgress.style.display="block";
+  let done=0;
+  const total=imgs.length;
+  async function uploadOne(f){
+    const path=Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+f.name;
+    const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
+    if(e){console.error("上传失败",f.name,e.message);done++;return;}
+    const{data:u}=sb.storage.from("images").getPublicUrl(path);
+    await sb.from("images").insert({url:u.publicUrl,storage_path:path,filename:f.name,uploader:currentUser,status:"pending",tags:[],comments:[],created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+    done++;
+    progressBar.style.width=(done/total*100)+"%";
+    uploadStatus.textContent="上传中 "+done+" / "+total;
+  }
+  const BATCH=4;
+  for(let i=0;i<imgs.length;i+=BATCH){
+    await Promise.allSettled(imgs.slice(i,i+BATCH).map(uploadOne));
+  }
+  uploadStatus.textContent="全部上传完成，共 "+total+" 张";
+  setTimeout(()=>{uploadProgress.style.display="none";progressBar.style.width="0";uploadStatus.textContent="";},3000);
+  fileInput.value="";
+}
+
+// 加载图片
+const grid=document.getElementById("grid"),emptyHint=document.getElementById("emptyHint"),statsBar=document.getElementById("statsBar");
+let allDocs=[],activeFilter="all";
+async function loadImages(){const{data}=await sb.from("images").select("*").order("created_at",{ascending:false});allDocs=data||[];renderGrid();}
+sb.channel("ch").on("postgres_changes",{event:"*",schema:"public",table:"images"},()=>loadImages()).subscribe();
+loadImages();
+function getFiltered(){return activeFilter==="all"?allDocs:allDocs.filter(d=>d.status===activeFilter);}
+function renderGrid(){
+  const filtered=getFiltered();
+  grid.innerHTML="";emptyHint.style.display=filtered.length===0?"block":"none";
+  const p=allDocs.filter(d=>d.status==="pending").length,a=allDocs.filter(d=>d.status==="approved").length,r=allDocs.filter(d=>d.status==="rejected").length;
+  statsBar.textContent="共 "+allDocs.length+" 张 | 待审 "+p+" | 通过 "+a+" | 打回 "+r;
+  filtered.forEach(item=>{
+    const card=document.createElement("div");card.className="card";
+    card.innerHTML='<img src="'+item.url+'" alt="" loading="lazy"/><div class="info"><span class="badge badge-'+item.status+'">'+statusLabel(item.status)+'</span><div class="filename">'+(item.filename||"图片")+'</div><div style="font-size:.72rem;color:#888;margin-top:2px">'+item.uploader+'</div>'+(item.status==="rejected"&&item.reject_reason?'<div class="reject-reason">'+item.reject_reason+'</div>':'')+'</div>';
+    card.addEventListener("click",()=>openModal(item,filtered));grid.appendChild(card);
+  });
+}
+function statusLabel(s){return{pending:"待审核",approved:"已通过",rejected:"已打回"}[s]||s;}
+document.querySelectorAll(".filter-bar button").forEach(btn=>{btn.addEventListener("click",()=>{document.querySelectorAll(".filter-bar button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");activeFilter=btn.dataset.filter;renderGrid();});});
+
+// 弹窗
+const modal=document.getElementById("modal"),modalImg=document.getElementById("modalImg"),modalFilename=document.getElementById("modalFilename"),modalUploader=document.getElementById("modalUploader"),commentInput=document.getElementById("commentInput"),commentsList=document.getElementById("commentsList"),btnApprove=document.getElementById("btnApprove"),btnReject=document.getElementById("btnReject"),btnDelete=document.getElementById("btnDelete"),modalClose=document.getElementById("modalClose"),replaceSection=document.getElementById("replaceSection"),replaceInput=document.getElementById("replaceInput"),replaceBtn=document.getElementById("replaceBtn"),replaceStatus=document.getElementById("replaceStatus"),btnPrev=document.getElementById("btnPrev"),btnNext=document.getElementById("btnNext"),navCounter=document.getElementById("navCounter");
+let selectedTags=[],currentDocId=null,currentList=[],currentIndex=-1;
+
+function openModal(item,list){
+  currentList=list||getFiltered();
+  currentIndex=currentList.findIndex(d=>d.id===item.id);
+  loadItem(item);
+  modal.classList.add("open");
+}
+function loadItem(item){
+  currentDocId=item.id;selectedTags=[];
+  modalImg.src=item.url;
+  modalFilename.textContent=item.filename||"图片";
+  modalUploader.textContent="上传人："+(item.uploader||"—")+"  |  状态："+statusLabel(item.status);
+  commentInput.value="";replaceStatus.textContent="";commentInput.style.border="";
+  document.querySelectorAll(".tag").forEach(t=>t.classList.remove("selected"));
+  commentsList.innerHTML="";
+  (item.comments||[]).slice().reverse().forEach(c=>{
+    const div=document.createElement("div");div.className="comment-item";
+    div.innerHTML='<div class="meta">'+c.user+" · "+fmt(c.time)+'</div>'+c.text+(c.tags&&c.tags.length?'<div style="margin-top:3px">'+c.tags.map(t=>'<span class="badge badge-pending">'+t+'</span>').join(" ")+'</div>':"");
+    commentsList.appendChild(div);
+  });
+  replaceSection.style.display=(item.status==="rejected"&&item.uploader===currentUser)?"block":"none";
+  const isMine=item.uploader===currentUser;
+  btnApprove.disabled=btnReject.disabled=isMine;
+  btnApprove.style.opacity=btnReject.style.opacity=isMine?".4":"1";
+  btnApprove.title=btnReject.title=isMine?"不能审核自己上传的图片":"";
+  btnPrev.disabled=currentIndex<=0;
+  btnNext.disabled=currentIndex>=currentList.length-1;
+  navCounter.textContent=(currentIndex+1)+" / "+currentList.length;
+}
+function navigate(dir){
+  const ni=currentIndex+dir;
+  if(ni<0||ni>=currentList.length)return;
+  currentIndex=ni;
+  loadItem(currentList[ni]);
+}
+btnPrev.addEventListener("click",()=>navigate(-1));
+btnNext.addEventListener("click",()=>navigate(1));
+document.addEventListener("keydown",e=>{
+  if(!modal.classList.contains("open"))return;
+  if(e.key==="ArrowLeft")navigate(-1);
+  if(e.key==="ArrowRight")navigate(1);
+  if(e.key==="Escape")closeModal();
+});
+modalClose.addEventListener("click",closeModal);
+modal.addEventListener("click",e=>{if(e.target===modal)closeModal();});
+function closeModal(){modal.classList.remove("open");currentDocId=null;}
+
+document.querySelectorAll(".tag").forEach(t=>{t.addEventListener("click",()=>{t.classList.toggle("selected");const tag=t.dataset.tag;if(selectedTags.includes(tag))selectedTags=selectedTags.filter(x=>x!==tag);else selectedTags.push(tag);});});
+
+btnApprove.addEventListener("click",async()=>{if(currentDocId)await submitReview("approved","");});
+btnReject.addEventListener("click",async()=>{
+  if(!currentDocId)return;
+  const reason=commentInput.value.trim();
+  if(!reason&&!selectedTags.length){commentInput.style.border="2px solid red";commentInput.placeholder="打回时请填写原因或选择标签";return;}
+  commentInput.style.border="";
+  await submitReview("rejected",reason||selectedTags.join("、"));
+});
+async function submitReview(status,rejectReason){
+  const comment=commentInput.value.trim();const item=allDocs.find(d=>d.id===currentDocId);const nc=[...(item?.comments||[])];
+  if(comment||selectedTags.length)nc.push({user:currentUser,text:comment,tags:[...selectedTags],time:new Date().toISOString(),action:status});
+  await sb.from("images").update({status,reject_reason:status==="rejected"?rejectReason:"",tags:selectedTags,comments:nc,reviewed_by:currentUser,updated_at:new Date().toISOString()}).eq("id",currentDocId);
+  closeModal();
+}
+
+btnDelete.addEventListener("click",async()=>{
+  if(!currentDocId)return;
+  if(!confirm("确定删除这张图片？此操作不可撤销。"))return;
+  await sb.from("images").delete().eq("id",currentDocId);
+  closeModal();
+});
+
+replaceBtn.addEventListener("click",async()=>{
+  const f=replaceInput.files[0];if(!f){replaceStatus.textContent="请先选择文件";return;}
+  replaceStatus.textContent="正在上传...";
+  const path=Date.now()+"_"+f.name;
+  const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
+  if(e){replaceStatus.textContent="失败："+e.message;return;}
+  const{data:u}=sb.storage.from("images").getPublicUrl(path);
+  await sb.from("images").update({url:u.publicUrl,storage_path:path,status:"pending",tags:[],updated_at:new Date().toISOString(),replaced_by:currentUser}).eq("id",currentDocId);
+  replaceStatus.textContent="替换成功！";replaceInput.value="";setTimeout(closeModal,1200);
+});
+
+function fmt(iso){if(!iso)return"";const d=new Date(iso);return(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+</script>
+</body>
+</html>
