@@ -239,11 +239,18 @@ async function handleFiles(files){
   let done=0,skipped=0;const total=imgs.length;
   async function uploadOne(f){
     const hash=await hashFile(f);
-    const{data:existing}=await sb.from("images").select("id,filename").eq("file_hash",hash).limit(1);
-    if(existing&&existing.length>0){
+    // 哈希检测：内容完全相同
+    const{data:byHash}=await sb.from("images").select("id,filename").eq("file_hash",hash).limit(1);
+    if(byHash&&byHash.length>0){
       skipped++;done++;progressBar.style.width=(done/total*100)+"%";
-      uploadStatus.textContent="跳过重复："+f.name+"（与已有「"+(existing[0].filename||"图片")+"」相同）";
+      uploadStatus.textContent="跳过重复："+f.name+"（内容与「"+(byHash[0].filename||"图片")+"」完全相同）";
       return;
+    }
+    // 文件名检测：同名文件已存在则询问
+    const{data:byName}=await sb.from("images").select("id,filename").eq("filename",f.name).limit(1);
+    if(byName&&byName.length>0){
+      const ok=confirm("「"+f.name+"」已存在同名图片，确定还要上传吗？\n（内容不同可以继续）");
+      if(!ok){skipped++;done++;progressBar.style.width=(done/total*100)+"%";return;}
     }
     const path=Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+f.name;
     const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
