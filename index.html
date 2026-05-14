@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8"/>
@@ -38,9 +38,28 @@ main{padding:24px}
 #uploadProgress{margin-top:10px;height:8px;background:#e0e0e0;border-radius:4px;display:none}
 #uploadProgress .bar{height:100%;background:#1a73e8;border-radius:4px;width:0;transition:width .15s}
 #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.card-wrap{position:relative}
 .card{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);cursor:pointer;transition:transform .15s,box-shadow .15s}
 .card:hover{transform:translateY(-3px);box-shadow:0 6px 16px rgba(0,0,0,.15)}
+.card-wrap.select-mode .card{outline:2px solid transparent}
+.card-wrap.selected .card{outline:3px solid #1a73e8}
+.card-sel{display:none;position:absolute;top:8px;right:8px;z-index:8}
+.card-wrap.select-mode .card-sel{display:block}
+.card-sel input{width:18px;height:18px;cursor:pointer}
+.claim-pin{position:absolute;top:8px;left:8px;z-index:7;background:#ff9800;color:#fff;padding:4px 10px;border-radius:10px;font-size:.72rem;font-weight:800;max-width:calc(100% - 48px);text-align:left;box-shadow:0 2px 6px rgba(0,0,0,.25)}
 .card img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.batch-bar{display:none;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px 14px;background:#fff;border-radius:12px;border:1px solid #dee2e6}
+.batch-bar.visible{display:flex}
+.batch-bar label{display:flex;align-items:center;gap:6px;font-size:.88rem;cursor:pointer}
+.batch-bar button{padding:6px 16px;border-radius:20px;border:none;cursor:pointer;font-size:.85rem;font-weight:600;background:#e9ecef}
+.batch-bar button.primary{background:#1a73e8;color:#fff}
+.batch-bar button.danger{background:#dc3545;color:#fff}
+#batchCount{margin-left:auto;font-size:.85rem;color:#555}
+.modal-claim-pin{position:absolute;top:10px;left:10px;z-index:15;background:#ff9800;color:#fff;padding:5px 12px;border-radius:10px;font-size:.8rem;font-weight:800;display:none;max-width:85%;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.modal-claim-pin.show{display:block}
+.btn-claim{padding:8px 18px;background:#ff9800;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:700}
+.btn-claim:hover{background:#f57c00}
+.btn-claim-secondary{padding:8px 14px;background:#fff;color:#666;border:1px solid #ccc;border-radius:8px;cursor:pointer;font-size:.85rem}
 .card .info{padding:10px 12px}
 .card .filename{font-size:.78rem;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .badge{display:inline-block;border-radius:12px;padding:2px 10px;font-size:.73rem;font-weight:700;margin-bottom:4px}
@@ -145,6 +164,13 @@ main{padding:24px}
       <button data-filter="rejected">已打回</button>
       <span id="statsBar"></span>
     </div>
+    <div class="batch-bar" id="batchBar">
+      <label><input type="checkbox" id="chkSelectMode"/> 多选</label>
+      <label><input type="checkbox" id="chkSelectAll"/> 全选当前列表</label>
+      <button type="button" class="primary" id="btnBatchDownload">下载选中</button>
+      <button type="button" class="danger" id="btnBatchDelete" style="display:none">删除选中</button>
+      <span id="batchCount">已选 0 张</span>
+    </div>
     <div id="grid"></div>
     <div id="emptyHint" style="display:none">暂无图片</div>
   </div>
@@ -152,6 +178,7 @@ main{padding:24px}
 <div id="modal">
   <div class="modal-box">
     <div class="modal-img-wrap">
+      <div class="modal-claim-pin" id="modalClaimPin"></div>
       <button class="nav-btn" id="btnPrev">&#8592;</button>
       <img id="modalImg" src="" alt=""/>
       <button class="nav-btn" id="btnNext">&#8594;</button>
@@ -170,6 +197,10 @@ main{padding:24px}
           <span class="tag" data-tag="色彩/文字问题">色彩/文字问题</span>
         </div>
         <textarea id="commentInput" placeholder="写评论或打回原因（可选）"></textarea>
+        <div style="margin-bottom:10px">
+          <button type="button" class="btn-claim" id="btnClaim" style="display:none">我来改！</button>
+          <button type="button" class="btn-claim-secondary" id="btnUnclaim" style="display:none;margin-left:8px">取消认领</button>
+        </div>
       </div>
       <div id="commentsList" class="comments-list"></div>
       <div class="modal-actions">
@@ -190,6 +221,21 @@ main{padding:24px}
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 const sb = createClient("https://ptxkeywyujftzusjvrrh.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0eGtleXd5dWpmdHp1c2p2cnJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NTY3NTEsImV4cCI6MjA5NDEzMjc1MX0.Y5AUQR4emWXbBcW_NB_yGb2FrrjBgIA5DK-rcyaISqg");
+let selectModeOn=!1,selectedIds=new Set();
+function refreshBatchBar(){
+  const iv=document.getElementById("imagesView"),bar=document.getElementById("batchBar");
+  if(iv.style.display==="block"){
+    bar.classList.add("visible");
+    document.getElementById("btnBatchDelete").style.display=currentRole==="uploader"?"inline-block":"none";
+  }else{
+    bar.classList.remove("visible");
+    selectedIds.clear();selectModeOn=!1;
+    const sm=document.getElementById("chkSelectMode");if(sm)sm.checked=!1;
+    const sa=document.getElementById("chkSelectAll");if(sa)sa.checked=!1;
+  }
+  updateBatchCount();
+}
+function updateBatchCount(){const el=document.getElementById("batchCount");if(el)el.textContent="已选 "+selectedIds.size+" 张";}
 
 // 登录
 const loginMask=document.getElementById("loginMask"),nameInput=document.getElementById("nameInput"),enterBtn=document.getElementById("enterBtn"),roleLabel=document.getElementById("roleLabel"),logoutBtn=document.getElementById("logoutBtn");
@@ -205,6 +251,7 @@ function applyLogin(){
   document.getElementById("btnApprove").style.display=currentRole==="reviewer"?"inline-block":"none";
   document.getElementById("btnReject").style.display=currentRole==="reviewer"?"inline-block":"none";
   document.getElementById("btnDelete").style.display=currentRole==="uploader"?"inline-block":"none";
+  refreshBatchBar();
 }
 enterBtn.addEventListener("click",()=>{const n=nameInput.value.trim();if(!n){nameInput.style.border="2px solid red";return;}if(!selectedRole){document.querySelectorAll(".role-card").forEach(c=>c.style.border="2px solid red");return;}currentUser=n;currentRole=selectedRole;localStorage.setItem("reviewUser",n);localStorage.setItem("reviewRole",selectedRole);applyLogin();});
 nameInput.addEventListener("keydown",e=>{if(e.key==="Enter")enterBtn.click();});
@@ -249,6 +296,7 @@ function makeProjectCard(id,name,total,pend,createdBy,createdAt){
 }
 
 document.getElementById("btnNewFolder").addEventListener("click",async()=>{
+  if(!currentUser){alert("请先在最上面点「切换」登录");return;}
   const name=prompt("文件夹名称：");
   if(!name||!name.trim())return;
   await sb.from("projects").insert({name:name.trim(),created_by:currentUser,created_at:new Date().toISOString()});
@@ -262,10 +310,10 @@ function openProject(id,name){
   projectsView.style.display="none";imagesView.style.display="block";
   projectTitle.textContent=name;headerTitle.textContent="PicReview / "+name;
   activeFilter="all";document.querySelectorAll(".filter-bar button").forEach(b=>b.classList.remove("active"));document.querySelector(".filter-bar button[data-filter='all']").classList.add("active");
-  loadImages();
+  refreshBatchBar();loadImages();
 }
 
-function goBack(){currentProjectId=null;currentProjectName="";projectsView.style.display="block";imagesView.style.display="none";headerTitle.textContent="PicReview";loadProjects();}
+function goBack(){currentProjectId=null;currentProjectName="";projectsView.style.display="block";imagesView.style.display="none";headerTitle.textContent="PicReview";refreshBatchBar();loadProjects();}
 document.getElementById("btnBack").addEventListener("click",goBack);
 
 sb.channel("proj-ch").on("postgres_changes",{event:"*",schema:"public",table:"projects"},()=>{if(currentProjectId===null)loadProjects();}).subscribe();
@@ -281,24 +329,36 @@ fileInput.addEventListener("change",()=>handleFiles([...fileInput.files]));
 async function hashFile(file){const buf=await file.arrayBuffer();const h=await crypto.subtle.digest("SHA-256",buf);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,"0")).join("");}
 async function handleFiles(files){
   const imgs=files.filter(f=>f.type.startsWith("image/"));if(!imgs.length)return;
-  uploadProgress.style.display="block";let done=0,skipped=0;const total=imgs.length;
+  uploadProgress.style.display="block";
+  let done=0,skipped=0,replaced=0,inserted=0;const total=imgs.length;
+  const pid=currentProjectId==="__uncat__"?null:currentProjectId;
   async function uploadOne(f){
     const hash=await hashFile(f);
+    let qn=sb.from("images").select("id").eq("filename",f.name).limit(1);
+    if(pid===null)qn=qn.is("project_id",null);else qn=qn.eq("project_id",pid);
+    const{data:sameName}=await qn;
+    if(sameName&&sameName.length){
+      const path=Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+f.name;
+      const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
+      if(e){done++;progressBar.style.width=(done/total*100)+"%";return;}
+      const{data:u}=sb.storage.from("images").getPublicUrl(path);
+      await sb.from("images").update({url:u.publicUrl,storage_path:path,file_hash:hash,status:"pending",updated_at:new Date().toISOString(),replaced_by:currentUser,reject_reason:"",tags:[],claimed_by:null,claimed_at:null}).eq("id",sameName[0].id);
+      replaced++;done++;progressBar.style.width=(done/total*100)+"%";
+      uploadStatus.textContent="处理中 "+done+" / "+total+"（同名替换）";
+      return;
+    }
     const{data:byHash}=await sb.from("images").select("id,filename").eq("file_hash",hash).limit(1);
-    if(byHash&&byHash.length>0){skipped++;done++;progressBar.style.width=(done/total*100)+"%";uploadStatus.textContent="跳过重复："+f.name;return;}
-    const{data:byName}=await sb.from("images").select("id").eq("filename",f.name).limit(1);
-    if(byName&&byName.length>0){const ok=confirm("「"+f.name+"」已有同名图片，确定继续？");if(!ok){skipped++;done++;progressBar.style.width=(done/total*100)+"%";return;}}
+    if(byHash&&byHash.length){skipped++;done++;progressBar.style.width=(done/total*100)+"%";uploadStatus.textContent="跳过重复："+f.name;return;}
     const path=Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+f.name;
     const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
-    if(e){done++;return;}
+    if(e){done++;progressBar.style.width=(done/total*100)+"%";return;}
     const{data:u}=sb.storage.from("images").getPublicUrl(path);
-    const pid=currentProjectId==="__uncat__"?null:currentProjectId;
     await sb.from("images").insert({url:u.publicUrl,storage_path:path,filename:f.name,file_hash:hash,uploader:currentUser,status:"pending",tags:[],comments:[],project_id:pid,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
-    done++;progressBar.style.width=(done/total*100)+"%";uploadStatus.textContent="上传中 "+done+" / "+total;
+    inserted++;done++;progressBar.style.width=(done/total*100)+"%";uploadStatus.textContent="上传中 "+done+" / "+total;
   }
   for(let i=0;i<imgs.length;i+=4)await Promise.allSettled(imgs.slice(i,i+4).map(uploadOne));
-  uploadStatus.textContent="完成：上传 "+(total-skipped)+" 张"+(skipped>0?"，跳过 "+skipped+" 张":"");
-  setTimeout(()=>{uploadProgress.style.display="none";progressBar.style.width="0";uploadStatus.textContent="";},4000);
+  uploadStatus.textContent="完成：新上传 "+inserted+"，同名替换 "+replaced+(skipped>0?"，跳过重复 "+skipped:"");
+  setTimeout(()=>{uploadProgress.style.display="none";progressBar.style.width="0";uploadStatus.textContent="";},4500);
   fileInput.value="";
 }
 
@@ -318,25 +378,66 @@ function renderGrid(){
   const p=allDocs.filter(d=>d.status==="pending").length,a=allDocs.filter(d=>d.status==="approved").length,r=allDocs.filter(d=>d.status==="rejected").length;
   statsBar.textContent="共 "+allDocs.length+" 张 | 待审 "+p+" | 通过 "+a+" | 打回 "+r;
   filtered.forEach(item=>{
+    const wrap=document.createElement("div");
+    wrap.className="card-wrap"+(selectModeOn?" select-mode":"")+(selectedIds.has(item.id)?" selected":"");
+    if(item.claimed_by){
+      const pin=document.createElement("div");pin.className="claim-pin";pin.textContent="我来改！ "+item.claimed_by;wrap.appendChild(pin);
+    }
+    const sel=document.createElement("label");sel.className="card-sel";
+    const cb=document.createElement("input");cb.type="checkbox";cb.checked=selectedIds.has(item.id);
+    sel.appendChild(cb);wrap.appendChild(sel);
     const card=document.createElement("div");card.className="card";
     card.innerHTML='<img src="'+item.url+'" alt="" loading="lazy"/><div class="info"><span class="badge badge-'+item.status+'">'+statusLabel(item.status)+'</span><div class="filename">'+(item.filename||"图片")+'</div><div style="font-size:.72rem;color:#888;margin-top:2px">'+(item.uploader||"")+'</div>'+(item.status==="rejected"&&item.reject_reason?'<div class="reject-reason">'+item.reject_reason+'</div>':'')+'</div>';
-    card.addEventListener("click",()=>openModal(item,filtered));grid.appendChild(card);
+    wrap.appendChild(card);
+    cb.addEventListener("change",e=>{e.stopPropagation();if(cb.checked)selectedIds.add(item.id);else selectedIds.delete(item.id);wrap.classList.toggle("selected",cb.checked);updateBatchCount();});
+    cb.addEventListener("click",e=>e.stopPropagation());
+    card.addEventListener("click",()=>{if(selectModeOn){cb.checked=!cb.checked;cb.dispatchEvent(new Event("change"));return;}openModal(item,filtered);});
+    grid.appendChild(wrap);
   });
 }
 function statusLabel(s){return{pending:"待审核",approved:"已通过",rejected:"已打回"}[s]||s;}
 document.querySelectorAll(".filter-bar button").forEach(btn=>{btn.addEventListener("click",()=>{document.querySelectorAll(".filter-bar button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");activeFilter=btn.dataset.filter;renderGrid();});});
+document.getElementById("chkSelectMode").addEventListener("change",e=>{selectModeOn=e.target.checked;if(!selectModeOn){selectedIds.clear();document.getElementById("chkSelectAll").checked=!1;}renderGrid();updateBatchCount();});
+document.getElementById("chkSelectAll").addEventListener("change",e=>{if(e.target.checked)getFiltered().forEach(i=>selectedIds.add(i.id));else selectedIds.clear();renderGrid();updateBatchCount();});
+document.getElementById("btnBatchDownload").addEventListener("click",async()=>{
+  if(!selectedIds.size){alert("请先勾选图片");return;}
+  try{
+    const JSZip=(await import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm")).default;
+    const zip=new JSZip();
+    for(const id of selectedIds){
+      const item=allDocs.find(d=>d.id===id);if(!item)continue;
+      const r=await fetch(item.url);const b=await r.blob();
+      zip.file(item.filename||id+".png",b);
+    }
+    const blob=await zip.generateAsync({type:"blob"});
+    const a=document.createElement("a");const u=URL.createObjectURL(blob);a.href=u;a.download="picreview_"+Date.now()+".zip";a.click();URL.revokeObjectURL(u);
+  }catch(err){alert("打包失败："+err.message);}
+});
+document.getElementById("btnBatchDelete").addEventListener("click",async()=>{
+  if(currentRole!=="uploader")return;
+  if(!selectedIds.size){alert("请先勾选图片");return;}
+  if(!confirm("确定删除选中的 "+selectedIds.size+" 张？"))return;
+  for(const id of[...selectedIds])await sb.from("images").delete().eq("id",id);
+  selectedIds.clear();renderGrid();updateBatchCount();
+});
 
 // 弹窗
-const modal=document.getElementById("modal"),modalImg=document.getElementById("modalImg"),modalFilename=document.getElementById("modalFilename"),modalUploader=document.getElementById("modalUploader"),commentInput=document.getElementById("commentInput"),commentsList=document.getElementById("commentsList"),btnApprove=document.getElementById("btnApprove"),btnReject=document.getElementById("btnReject"),btnDelete=document.getElementById("btnDelete"),modalClose=document.getElementById("modalClose"),replaceSection=document.getElementById("replaceSection"),replaceInput=document.getElementById("replaceInput"),replaceBtn=document.getElementById("replaceBtn"),replaceStatus=document.getElementById("replaceStatus"),btnPrev=document.getElementById("btnPrev"),btnNext=document.getElementById("btnNext"),navCounter=document.getElementById("navCounter");
+const modal=document.getElementById("modal"),modalImg=document.getElementById("modalImg"),modalFilename=document.getElementById("modalFilename"),modalUploader=document.getElementById("modalUploader"),commentInput=document.getElementById("commentInput"),commentsList=document.getElementById("commentsList"),btnApprove=document.getElementById("btnApprove"),btnReject=document.getElementById("btnReject"),btnDelete=document.getElementById("btnDelete"),modalClose=document.getElementById("modalClose"),replaceSection=document.getElementById("replaceSection"),replaceInput=document.getElementById("replaceInput"),replaceBtn=document.getElementById("replaceBtn"),replaceStatus=document.getElementById("replaceStatus"),btnPrev=document.getElementById("btnPrev"),btnNext=document.getElementById("btnNext"),navCounter=document.getElementById("navCounter"),modalClaimPin=document.getElementById("modalClaimPin"),btnClaim=document.getElementById("btnClaim"),btnUnclaim=document.getElementById("btnUnclaim");
 let selectedTags=[],currentDocId=null,currentList=[],currentIndex=-1;
 function openModal(item,list){currentList=list||getFiltered();currentIndex=currentList.findIndex(d=>d.id===item.id);loadItem(item);modal.classList.add("open");}
 function loadItem(item){
   currentDocId=item.id;selectedTags=[];modalImg.src=item.url;modalFilename.textContent=item.filename||"图片";
-  modalUploader.textContent="上传人："+(item.uploader||"—")+"  |  状态："+statusLabel(item.status);
+  modalUploader.textContent="上传人："+(item.uploader||"—")+"  |  状态："+statusLabel(item.status)+(item.claimed_by?"  |  认领："+item.claimed_by:"");
   commentInput.value="";replaceStatus.textContent="";commentInput.style.border="";
   document.querySelectorAll(".tag").forEach(t=>t.classList.remove("selected"));
+  if(item.claimed_by){modalClaimPin.textContent="我来改！ "+item.claimed_by;modalClaimPin.classList.add("show");}
+  else{modalClaimPin.textContent="";modalClaimPin.classList.remove("show");}
+  if(currentRole==="reviewer"){
+    btnClaim.style.display=!item.claimed_by?"inline-block":"none";
+    btnUnclaim.style.display=item.claimed_by===currentUser?"inline-block":"none";
+  }else{btnClaim.style.display="none";btnUnclaim.style.display="none";}
   commentsList.innerHTML="";
-  (item.comments||[]).slice().reverse().forEach(c=>{const div=document.createElement("div");div.className="comment-item";div.innerHTML='<div class="meta">'+c.user+" · "+fmt(c.time)+(c.action==="approved"?" ✅":"")+(c.action==="rejected"?" ❌":"")+'</div>'+(c.text||"")+(c.tags&&c.tags.length?'<div style="margin-top:3px">'+c.tags.map(t=>'<span class="badge badge-pending">'+t+'</span>').join(" ")+'</div>':"");commentsList.appendChild(div);});
+  (item.comments||[]).slice().reverse().forEach(c=>{const div=document.createElement("div");div.className="comment-item";const claimMark=c.type==="claim"?' <span style="color:#e65100;font-weight:700">[认领]</span>':"";div.innerHTML='<div class="meta">'+c.user+" · "+fmt(c.time)+claimMark+(c.action==="approved"?" ✅":"")+(c.action==="rejected"?" ❌":"")+'</div>'+(c.text||"")+(c.tags&&c.tags.length?'<div style="margin-top:3px">'+c.tags.map(t=>'<span class="badge badge-pending">'+t+'</span>').join(" ")+'</div>':"");commentsList.appendChild(div);});
   replaceSection.style.display=(currentRole==="uploader"&&item.status==="rejected")?"block":"none";
   btnPrev.disabled=currentIndex<=0;btnNext.disabled=currentIndex>=currentList.length-1;
   navCounter.textContent=(currentIndex+1)+" / "+currentList.length;
@@ -349,6 +450,23 @@ modalClose.addEventListener("click",closeModal);
 modal.addEventListener("click",e=>{if(e.target===modal)closeModal();});
 function closeModal(){modal.classList.remove("open");currentDocId=null;}
 document.querySelectorAll(".tag").forEach(t=>{t.addEventListener("click",()=>{t.classList.toggle("selected");const tag=t.dataset.tag;if(selectedTags.includes(tag))selectedTags=selectedTags.filter(x=>x!==tag);else selectedTags.push(tag);});});
+btnClaim.addEventListener("click",async()=>{
+  if(!currentDocId||currentRole!=="reviewer")return;
+  const item=allDocs.find(d=>d.id===currentDocId);
+  if(!item||item.claimed_by)return;
+  const nc=[...(item.comments||[])];nc.push({user:currentUser,text:"我来改！",type:"claim",time:new Date().toISOString()});
+  const now=new Date().toISOString();
+  await sb.from("images").update({claimed_by:currentUser,claimed_at:now,comments:nc,updated_at:now}).eq("id",currentDocId);
+  loadItem({...item,claimed_by:currentUser,claimed_at:now,comments:nc});
+});
+btnUnclaim.addEventListener("click",async()=>{
+  if(!currentDocId)return;
+  const item=allDocs.find(d=>d.id===currentDocId);
+  if(!item||item.claimed_by!==currentUser)return;
+  const now=new Date().toISOString();
+  await sb.from("images").update({claimed_by:null,claimed_at:null,updated_at:now}).eq("id",currentDocId);
+  loadItem({...item,claimed_by:null,claimed_at:null});
+});
 btnApprove.addEventListener("click",async()=>{if(currentDocId)await submitReview("approved","");});
 btnReject.addEventListener("click",async()=>{if(!currentDocId)return;const reason=commentInput.value.trim();if(!reason&&!selectedTags.length){commentInput.style.border="2px solid red";commentInput.placeholder="打回时请填写原因或选择标签";return;}commentInput.style.border="";await submitReview("rejected",reason||selectedTags.join("、"));});
 async function submitReview(status,rejectReason){
@@ -361,11 +479,12 @@ btnDelete.addEventListener("click",async()=>{if(!currentDocId)return;if(!confirm
 replaceBtn.addEventListener("click",async()=>{
   const f=replaceInput.files[0];if(!f){replaceStatus.textContent="请先选择文件";return;}
   replaceStatus.textContent="正在上传...";
+  const hash=await hashFile(f);
   const path=Date.now()+"_"+f.name;
   const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
   if(e){replaceStatus.textContent="失败："+e.message;return;}
   const{data:u}=sb.storage.from("images").getPublicUrl(path);
-  await sb.from("images").update({url:u.publicUrl,storage_path:path,status:"pending",tags:[],updated_at:new Date().toISOString(),replaced_by:currentUser}).eq("id",currentDocId);
+  await sb.from("images").update({url:u.publicUrl,storage_path:path,file_hash:hash,status:"pending",tags:[],updated_at:new Date().toISOString(),replaced_by:currentUser,claimed_by:null,claimed_at:null}).eq("id",currentDocId);
   replaceStatus.textContent="替换成功！";replaceInput.value="";setTimeout(closeModal,1200);
 });
 function fmt(iso){if(!iso)return"";const d=new Date(iso);return(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
