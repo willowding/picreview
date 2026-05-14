@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8"/>
@@ -8,10 +8,25 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:#f0f2f5;color:#222;min-height:100vh}
 header{background:#1a73e8;color:#fff;padding:14px 24px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
-header h1{font-size:1.2rem;flex:1}
+header h1{font-size:1.2rem;flex:1;cursor:pointer}
 #roleLabel{background:rgba(255,255,255,.2);border-radius:20px;padding:4px 14px;font-size:.85rem}
 #logoutBtn{background:#fff;color:#1a73e8;border:none;border-radius:20px;padding:5px 14px;cursor:pointer;font-size:.85rem;font-weight:600}
 main{padding:24px}
+.back-bar{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.btn-back{background:#fff;border:2px solid #1a73e8;color:#1a73e8;border-radius:20px;padding:5px 16px;cursor:pointer;font-size:.9rem;font-weight:600}
+.btn-back:hover{background:#e8f0fe}
+.project-title{font-size:1.2rem;font-weight:700}
+.projects-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.projects-header h2{font-size:1.1rem;font-weight:700}
+.btn-new-folder{background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:7px 20px;cursor:pointer;font-size:.9rem;font-weight:600}
+.btn-new-folder:hover{background:#1558b0}
+.projects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:32px}
+.folder-card{background:#fff;border-radius:12px;padding:20px 18px;box-shadow:0 2px 8px rgba(0,0,0,.1);cursor:pointer;transition:transform .15s,box-shadow .15s;display:flex;flex-direction:column;gap:8px}
+.folder-card:hover{transform:translateY(-3px);box-shadow:0 6px 16px rgba(0,0,0,.15)}
+.folder-card .folder-icon{font-size:2rem}
+.folder-card .folder-name{font-weight:700;font-size:1rem;word-break:break-all}
+.folder-card .folder-meta{font-size:.78rem;color:#888}
+.folder-card .folder-stats{display:flex;gap:6px;flex-wrap:wrap}
 .filter-bar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
 .filter-bar button{padding:6px 18px;border:2px solid #ccc;background:#fff;border-radius:20px;cursor:pointer;font-size:.9rem;transition:all .15s}
 .filter-bar button.active,.filter-bar button:hover{border-color:#1a73e8;color:#1a73e8;background:#e8f0fe}
@@ -63,7 +78,6 @@ main{padding:24px}
 .btn-delete{padding:8px 18px;background:#fff;color:#dc3545;border:2px solid #dc3545;border-radius:8px;cursor:pointer;font-size:.92rem;margin-right:auto}
 .btn-delete:hover{background:#f8d7da}
 .replaceBtn{width:100%;margin-top:8px;padding:7px;background:#dc3545;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:600}
-.replaceBtn:hover{background:#bb2d3b}
 #emptyHint{text-align:center;color:#aaa;margin-top:60px;font-size:1rem}
 #loginMask{position:fixed;inset:0;background:linear-gradient(135deg,#1a73e8 0%,#0d47a1 100%);display:flex;align-items:center;justify-content:center;z-index:200}
 .login-box{background:#fff;border-radius:16px;padding:40px 36px;width:360px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.25)}
@@ -73,8 +87,7 @@ main{padding:24px}
 .login-box input:focus{outline:none;border-color:#1a73e8}
 .role-pick{display:flex;gap:12px;margin-bottom:22px}
 .role-card{flex:1;border:2px solid #ccc;border-radius:10px;padding:14px 8px;cursor:pointer;transition:all .15s;text-align:center}
-.role-card:hover{border-color:#1a73e8;background:#e8f0fe}
-.role-card.selected{border-color:#1a73e8;background:#e8f0fe}
+.role-card:hover,.role-card.selected{border-color:#1a73e8;background:#e8f0fe}
 .role-card .icon{font-size:1.8rem;margin-bottom:6px}
 .role-card .name{font-weight:700;font-size:.95rem}
 .role-card .desc{font-size:.75rem;color:#666;margin-top:3px}
@@ -91,49 +104,56 @@ main{padding:24px}
     <p class="sub">请输入名字并选择本次任务</p>
     <input id="nameInput" type="text" placeholder="你的名字" maxlength="20"/>
     <div class="role-pick">
-      <div class="role-card" id="cardUploader" data-role="uploader">
-        <div class="icon">📤</div>
-        <div class="name">上传</div>
-        <div class="desc">上传 / 删除 / 替换</div>
-      </div>
-      <div class="role-card" id="cardReviewer" data-role="reviewer">
-        <div class="icon">🔍</div>
-        <div class="name">审核</div>
-        <div class="desc">通过 / 打回 / 评论</div>
-      </div>
+      <div class="role-card" id="cardUploader" data-role="uploader"><div class="icon">📤</div><div class="name">上传</div><div class="desc">上传/删除/替换</div></div>
+      <div class="role-card" id="cardReviewer" data-role="reviewer"><div class="icon">🔍</div><div class="name">审核</div><div class="desc">通过/打回/评论</div></div>
     </div>
     <button id="enterBtn">进入</button>
   </div>
 </div>
 <header>
-  <h1>PicReview</h1>
+  <h1 id="headerTitle" title="返回文件夹列表">PicReview</h1>
   <span id="roleLabel"></span>
   <button id="logoutBtn">切换</button>
 </header>
 <main>
-  <div id="uploadArea">
-    <div style="font-size:2.5rem">📤</div>
-    <p><strong>点击或拖拽图片到此处上传</strong></p>
-    <p>支持 JPG / PNG / WEBP，可多选批量上传</p>
-    <input id="fileInput" type="file" accept="image/*" multiple/>
-    <div id="uploadProgress"><div class="bar" id="progressBar"></div></div>
-    <p id="uploadStatus" style="margin-top:6px;font-size:.85rem;color:#555"></p>
+  <!-- 文件夹列表视图 -->
+  <div id="projectsView">
+    <div class="projects-header">
+      <h2>📁 所有文件夹</h2>
+      <button class="btn-new-folder" id="btnNewFolder">+ 新建文件夹</button>
+    </div>
+    <div class="projects-grid" id="projectsGrid"></div>
   </div>
-  <div class="filter-bar">
-    <button class="active" data-filter="all">全部</button>
-    <button data-filter="pending">待审核</button>
-    <button data-filter="approved">已通过</button>
-    <button data-filter="rejected">已打回</button>
-    <span id="statsBar"></span>
+  <!-- 图片视图 -->
+  <div id="imagesView" style="display:none">
+    <div class="back-bar">
+      <button class="btn-back" id="btnBack">← 返回</button>
+      <span class="project-title" id="projectTitle"></span>
+    </div>
+    <div id="uploadArea">
+      <div style="font-size:2.5rem">📤</div>
+      <p><strong>点击或拖拽图片到此处上传</strong></p>
+      <p>支持 JPG / PNG / WEBP，可多选批量上传</p>
+      <input id="fileInput" type="file" accept="image/*" multiple/>
+      <div id="uploadProgress"><div class="bar" id="progressBar"></div></div>
+      <p id="uploadStatus" style="margin-top:6px;font-size:.85rem;color:#555"></p>
+    </div>
+    <div class="filter-bar">
+      <button class="active" data-filter="all">全部</button>
+      <button data-filter="pending">待审核</button>
+      <button data-filter="approved">已通过</button>
+      <button data-filter="rejected">已打回</button>
+      <span id="statsBar"></span>
+    </div>
+    <div id="grid"></div>
+    <div id="emptyHint" style="display:none">暂无图片</div>
   </div>
-  <div id="grid"></div>
-  <div id="emptyHint" style="display:none">暂无图片</div>
 </main>
 <div id="modal">
   <div class="modal-box">
     <div class="modal-img-wrap">
       <button class="nav-btn" id="btnPrev">&#8592;</button>
-      <img id="modalImg" src="" alt="预览图"/>
+      <img id="modalImg" src="" alt=""/>
       <button class="nav-btn" id="btnNext">&#8594;</button>
       <span id="navCounter"></span>
     </div>
@@ -173,96 +193,111 @@ const sb = createClient("https://ptxkeywyujftzusjvrrh.supabase.co","eyJhbGciOiJI
 
 // 登录
 const loginMask=document.getElementById("loginMask"),nameInput=document.getElementById("nameInput"),enterBtn=document.getElementById("enterBtn"),roleLabel=document.getElementById("roleLabel"),logoutBtn=document.getElementById("logoutBtn");
-let currentUser=localStorage.getItem("reviewUser")||"";
-let currentRole=localStorage.getItem("reviewRole")||"";
-let selectedRole="";
-
-document.querySelectorAll(".role-card").forEach(c=>{
-  c.addEventListener("click",()=>{
-    document.querySelectorAll(".role-card").forEach(x=>x.classList.remove("selected"));
-    c.classList.add("selected");
-    selectedRole=c.dataset.role;
-  });
-});
-
+let currentUser=localStorage.getItem("reviewUser")||"",currentRole=localStorage.getItem("reviewRole")||"",selectedRole="";
+document.querySelectorAll(".role-card").forEach(c=>{c.addEventListener("click",()=>{document.querySelectorAll(".role-card").forEach(x=>x.classList.remove("selected"));c.classList.add("selected");selectedRole=c.dataset.role;});});
 function applyLogin(){
   if(!currentUser||!currentRole)return;
   loginMask.style.display="none";
   const badge=currentRole==="uploader"?'<span class="role-badge-uploader">上传方</span>':'<span class="role-badge-reviewer">审核员</span>';
   roleLabel.innerHTML=currentUser+badge;
-  applyRoleUI();
+  document.getElementById("uploadArea").style.display=currentRole==="uploader"?"block":"none";
+  document.getElementById("reviewerSection").style.display=currentRole==="reviewer"?"block":"none";
+  document.getElementById("btnApprove").style.display=currentRole==="reviewer"?"inline-block":"none";
+  document.getElementById("btnReject").style.display=currentRole==="reviewer"?"inline-block":"none";
+  document.getElementById("btnDelete").style.display=currentRole==="uploader"?"inline-block":"none";
 }
-
-function applyRoleUI(){
-  const isUploader=currentRole==="uploader";
-  const isReviewer=currentRole==="reviewer";
-  document.getElementById("uploadArea").style.display=isUploader?"block":"none";
-  document.getElementById("reviewerSection").style.display=isReviewer?"block":"none";
-  document.getElementById("btnApprove").style.display=isReviewer?"inline-block":"none";
-  document.getElementById("btnReject").style.display=isReviewer?"inline-block":"none";
-  document.getElementById("btnDelete").style.display=isUploader?"inline-block":"none";
-}
-
-enterBtn.addEventListener("click",()=>{
-  const n=nameInput.value.trim();
-  if(!n){nameInput.style.border="2px solid red";return;}
-  if(!selectedRole){document.querySelectorAll(".role-card").forEach(c=>c.style.border="2px solid red");return;}
-  currentUser=n;currentRole=selectedRole;
-  localStorage.setItem("reviewUser",n);localStorage.setItem("reviewRole",selectedRole);
-  applyLogin();
-});
+enterBtn.addEventListener("click",()=>{const n=nameInput.value.trim();if(!n){nameInput.style.border="2px solid red";return;}if(!selectedRole){document.querySelectorAll(".role-card").forEach(c=>c.style.border="2px solid red");return;}currentUser=n;currentRole=selectedRole;localStorage.setItem("reviewUser",n);localStorage.setItem("reviewRole",selectedRole);applyLogin();});
 nameInput.addEventListener("keydown",e=>{if(e.key==="Enter")enterBtn.click();});
-logoutBtn.addEventListener("click",()=>{
-  localStorage.removeItem("reviewUser");localStorage.removeItem("reviewRole");
-  currentUser="";currentRole="";selectedRole="";
-  document.querySelectorAll(".role-card").forEach(c=>c.classList.remove("selected"));
-  loginMask.style.display="flex";nameInput.value="";
-});
+logoutBtn.addEventListener("click",()=>{localStorage.removeItem("reviewUser");localStorage.removeItem("reviewRole");currentUser="";currentRole="";selectedRole="";document.querySelectorAll(".role-card").forEach(c=>c.classList.remove("selected"));loginMask.style.display="flex";nameInput.value="";});
 applyLogin();
 
-// 上传（4张并行）
+// 文件夹
+let currentProjectId=null,currentProjectName="";
+const projectsView=document.getElementById("projectsView"),imagesView=document.getElementById("imagesView"),projectsGrid=document.getElementById("projectsGrid"),projectTitle=document.getElementById("projectTitle"),headerTitle=document.getElementById("headerTitle");
+
+async function loadProjects(){
+  const{data:projects}=await sb.from("projects").select("*").order("created_at",{ascending:false});
+  const counts={};
+  const pending={};
+  const{data:imgs}=await sb.from("images").select("id,project_id,status");
+  (imgs||[]).forEach(img=>{
+    const k=img.project_id||"__uncat__";
+    counts[k]=(counts[k]||0)+1;
+    if(img.status==="pending")pending[k]=(pending[k]||0)+1;
+  });
+  projectsGrid.innerHTML="";
+  // 未分类
+  const ucTotal=counts["__uncat__"]||0;
+  const ucPending=pending["__uncat__"]||0;
+  if(ucTotal>0){
+    const card=makeProjectCard("__uncat__","未分类",ucTotal,ucPending,"系统","");
+    projectsGrid.appendChild(card);
+  }
+  (projects||[]).forEach(p=>{
+    const total=counts[p.id]||0;
+    const pend=pending[p.id]||0;
+    projectsGrid.appendChild(makeProjectCard(p.id,p.name,total,pend,p.created_by,p.created_at));
+  });
+}
+
+function makeProjectCard(id,name,total,pend,createdBy,createdAt){
+  const card=document.createElement("div");card.className="folder-card";
+  const dateStr=createdAt?fmt(createdAt):"";
+  card.innerHTML='<div class="folder-icon">📁</div><div class="folder-name">'+name+'</div><div class="folder-stats"><span class="badge badge-pending">待审 '+pend+'</span><span class="badge" style="background:#e9ecef;color:#555">共 '+total+' 张</span></div><div class="folder-meta">'+(createdBy||"")+(dateStr?" · "+dateStr:"")+'</div>';
+  card.addEventListener("click",()=>openProject(id,name));
+  return card;
+}
+
+document.getElementById("btnNewFolder").addEventListener("click",async()=>{
+  const name=prompt("文件夹名称：");
+  if(!name||!name.trim())return;
+  await sb.from("projects").insert({name:name.trim(),created_by:currentUser,created_at:new Date().toISOString()});
+  loadProjects();
+});
+
+headerTitle.addEventListener("click",()=>{if(currentProjectId!==null)goBack();});
+
+function openProject(id,name){
+  currentProjectId=id;currentProjectName=name;
+  projectsView.style.display="none";imagesView.style.display="block";
+  projectTitle.textContent=name;headerTitle.textContent="PicReview / "+name;
+  activeFilter="all";document.querySelectorAll(".filter-bar button").forEach(b=>b.classList.remove("active"));document.querySelector(".filter-bar button[data-filter='all']").classList.add("active");
+  loadImages();
+}
+
+function goBack(){currentProjectId=null;currentProjectName="";projectsView.style.display="block";imagesView.style.display="none";headerTitle.textContent="PicReview";loadProjects();}
+document.getElementById("btnBack").addEventListener("click",goBack);
+
+sb.channel("proj-ch").on("postgres_changes",{event:"*",schema:"public",table:"projects"},()=>{if(currentProjectId===null)loadProjects();}).subscribe();
+loadProjects();
+
+// 上传
 const uploadArea=document.getElementById("uploadArea"),fileInput=document.getElementById("fileInput"),progressBar=document.getElementById("progressBar"),uploadProgress=document.getElementById("uploadProgress"),uploadStatus=document.getElementById("uploadStatus");
 uploadArea.addEventListener("click",()=>fileInput.click());
 uploadArea.addEventListener("dragover",e=>{e.preventDefault();uploadArea.style.background="#dbeafe";});
 uploadArea.addEventListener("dragleave",()=>{uploadArea.style.background="";});
 uploadArea.addEventListener("drop",e=>{e.preventDefault();uploadArea.style.background="";handleFiles([...e.dataTransfer.files]);});
 fileInput.addEventListener("change",()=>handleFiles([...fileInput.files]));
-async function hashFile(file){
-  const buf=await file.arrayBuffer();
-  const hashBuf=await crypto.subtle.digest("SHA-256",buf);
-  return Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,"0")).join("");
-}
+async function hashFile(file){const buf=await file.arrayBuffer();const h=await crypto.subtle.digest("SHA-256",buf);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,"0")).join("");}
 async function handleFiles(files){
-  const imgs=files.filter(f=>f.type.startsWith("image/"));
-  if(!imgs.length)return;
-  uploadProgress.style.display="block";
-  let done=0,skipped=0;const total=imgs.length;
+  const imgs=files.filter(f=>f.type.startsWith("image/"));if(!imgs.length)return;
+  uploadProgress.style.display="block";let done=0,skipped=0;const total=imgs.length;
   async function uploadOne(f){
     const hash=await hashFile(f);
-    // 哈希检测：内容完全相同
     const{data:byHash}=await sb.from("images").select("id,filename").eq("file_hash",hash).limit(1);
-    if(byHash&&byHash.length>0){
-      skipped++;done++;progressBar.style.width=(done/total*100)+"%";
-      uploadStatus.textContent="跳过重复："+f.name+"（内容与「"+(byHash[0].filename||"图片")+"」完全相同）";
-      return;
-    }
-    // 文件名检测：同名文件已存在则询问
-    const{data:byName}=await sb.from("images").select("id,filename").eq("filename",f.name).limit(1);
-    if(byName&&byName.length>0){
-      const ok=confirm("「"+f.name+"」已存在同名图片，确定还要上传吗？\n（内容不同可以继续）");
-      if(!ok){skipped++;done++;progressBar.style.width=(done/total*100)+"%";return;}
-    }
+    if(byHash&&byHash.length>0){skipped++;done++;progressBar.style.width=(done/total*100)+"%";uploadStatus.textContent="跳过重复："+f.name;return;}
+    const{data:byName}=await sb.from("images").select("id").eq("filename",f.name).limit(1);
+    if(byName&&byName.length>0){const ok=confirm("「"+f.name+"」已有同名图片，确定继续？");if(!ok){skipped++;done++;progressBar.style.width=(done/total*100)+"%";return;}}
     const path=Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+f.name;
     const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
-    if(e){console.error(f.name,e.message);done++;return;}
+    if(e){done++;return;}
     const{data:u}=sb.storage.from("images").getPublicUrl(path);
-    await sb.from("images").insert({url:u.publicUrl,storage_path:path,filename:f.name,file_hash:hash,uploader:currentUser,status:"pending",tags:[],comments:[],created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
-    done++;progressBar.style.width=(done/total*100)+"%";
-    uploadStatus.textContent="上传中 "+done+" / "+total;
+    const pid=currentProjectId==="__uncat__"?null:currentProjectId;
+    await sb.from("images").insert({url:u.publicUrl,storage_path:path,filename:f.name,file_hash:hash,uploader:currentUser,status:"pending",tags:[],comments:[],project_id:pid,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+    done++;progressBar.style.width=(done/total*100)+"%";uploadStatus.textContent="上传中 "+done+" / "+total;
   }
   for(let i=0;i<imgs.length;i+=4)await Promise.allSettled(imgs.slice(i,i+4).map(uploadOne));
-  const uploaded=total-skipped;
-  uploadStatus.textContent="完成：上传 "+uploaded+" 张"+(skipped>0?"，跳过重复 "+skipped+" 张":"");
+  uploadStatus.textContent="完成：上传 "+(total-skipped)+" 张"+(skipped>0?"，跳过 "+skipped+" 张":"");
   setTimeout(()=>{uploadProgress.style.display="none";progressBar.style.width="0";uploadStatus.textContent="";},4000);
   fileInput.value="";
 }
@@ -270,13 +305,16 @@ async function handleFiles(files){
 // 图片列表
 const grid=document.getElementById("grid"),emptyHint=document.getElementById("emptyHint"),statsBar=document.getElementById("statsBar");
 let allDocs=[],activeFilter="all";
-async function loadImages(){const{data}=await sb.from("images").select("*").order("filename",{ascending:false});allDocs=data||[];renderGrid();}
-sb.channel("ch").on("postgres_changes",{event:"*",schema:"public",table:"images"},()=>loadImages()).subscribe();
-loadImages();
+async function loadImages(){
+  let q=sb.from("images").select("*").order("filename",{ascending:false});
+  if(currentProjectId==="__uncat__")q=q.is("project_id",null);
+  else q=q.eq("project_id",currentProjectId);
+  const{data}=await q;allDocs=data||[];renderGrid();
+}
+sb.channel("img-ch").on("postgres_changes",{event:"*",schema:"public",table:"images"},()=>{if(currentProjectId!==null)loadImages();else loadProjects();}).subscribe();
 function getFiltered(){return activeFilter==="all"?allDocs:allDocs.filter(d=>d.status===activeFilter);}
 function renderGrid(){
-  const filtered=getFiltered();
-  grid.innerHTML="";emptyHint.style.display=filtered.length===0?"block":"none";
+  const filtered=getFiltered();grid.innerHTML="";emptyHint.style.display=filtered.length===0?"block":"none";
   const p=allDocs.filter(d=>d.status==="pending").length,a=allDocs.filter(d=>d.status==="approved").length,r=allDocs.filter(d=>d.status==="rejected").length;
   statsBar.textContent="共 "+allDocs.length+" 张 | 待审 "+p+" | 通过 "+a+" | 打回 "+r;
   filtered.forEach(item=>{
@@ -291,21 +329,14 @@ document.querySelectorAll(".filter-bar button").forEach(btn=>{btn.addEventListen
 // 弹窗
 const modal=document.getElementById("modal"),modalImg=document.getElementById("modalImg"),modalFilename=document.getElementById("modalFilename"),modalUploader=document.getElementById("modalUploader"),commentInput=document.getElementById("commentInput"),commentsList=document.getElementById("commentsList"),btnApprove=document.getElementById("btnApprove"),btnReject=document.getElementById("btnReject"),btnDelete=document.getElementById("btnDelete"),modalClose=document.getElementById("modalClose"),replaceSection=document.getElementById("replaceSection"),replaceInput=document.getElementById("replaceInput"),replaceBtn=document.getElementById("replaceBtn"),replaceStatus=document.getElementById("replaceStatus"),btnPrev=document.getElementById("btnPrev"),btnNext=document.getElementById("btnNext"),navCounter=document.getElementById("navCounter");
 let selectedTags=[],currentDocId=null,currentList=[],currentIndex=-1;
-
 function openModal(item,list){currentList=list||getFiltered();currentIndex=currentList.findIndex(d=>d.id===item.id);loadItem(item);modal.classList.add("open");}
 function loadItem(item){
-  currentDocId=item.id;selectedTags=[];
-  modalImg.src=item.url;modalFilename.textContent=item.filename||"图片";
+  currentDocId=item.id;selectedTags=[];modalImg.src=item.url;modalFilename.textContent=item.filename||"图片";
   modalUploader.textContent="上传人："+(item.uploader||"—")+"  |  状态："+statusLabel(item.status);
-  if(commentInput)commentInput.value="";replaceStatus.textContent="";if(commentInput)commentInput.style.border="";
+  commentInput.value="";replaceStatus.textContent="";commentInput.style.border="";
   document.querySelectorAll(".tag").forEach(t=>t.classList.remove("selected"));
   commentsList.innerHTML="";
-  (item.comments||[]).slice().reverse().forEach(c=>{
-    const div=document.createElement("div");div.className="comment-item";
-    div.innerHTML='<div class="meta">'+c.user+" · "+fmt(c.time)+(c.action==="approved"?' ✅':'')+(c.action==="rejected"?' ❌':'')+'</div>'+(c.text||"")+(c.tags&&c.tags.length?'<div style="margin-top:3px">'+c.tags.map(t=>'<span class="badge badge-pending">'+t+'</span>').join(" ")+'</div>':"");
-    commentsList.appendChild(div);
-  });
-  // 替换区：上传方且被打回
+  (item.comments||[]).slice().reverse().forEach(c=>{const div=document.createElement("div");div.className="comment-item";div.innerHTML='<div class="meta">'+c.user+" · "+fmt(c.time)+(c.action==="approved"?" ✅":"")+(c.action==="rejected"?" ❌":"")+'</div>'+(c.text||"")+(c.tags&&c.tags.length?'<div style="margin-top:3px">'+c.tags.map(t=>'<span class="badge badge-pending">'+t+'</span>').join(" ")+'</div>':"");commentsList.appendChild(div);});
   replaceSection.style.display=(currentRole==="uploader"&&item.status==="rejected")?"block":"none";
   btnPrev.disabled=currentIndex<=0;btnNext.disabled=currentIndex>=currentList.length-1;
   navCounter.textContent=(currentIndex+1)+" / "+currentList.length;
@@ -317,29 +348,16 @@ document.addEventListener("keydown",e=>{if(!modal.classList.contains("open"))ret
 modalClose.addEventListener("click",closeModal);
 modal.addEventListener("click",e=>{if(e.target===modal)closeModal();});
 function closeModal(){modal.classList.remove("open");currentDocId=null;}
-
 document.querySelectorAll(".tag").forEach(t=>{t.addEventListener("click",()=>{t.classList.toggle("selected");const tag=t.dataset.tag;if(selectedTags.includes(tag))selectedTags=selectedTags.filter(x=>x!==tag);else selectedTags.push(tag);});});
-
 btnApprove.addEventListener("click",async()=>{if(currentDocId)await submitReview("approved","");});
-btnReject.addEventListener("click",async()=>{
-  if(!currentDocId)return;
-  const reason=commentInput.value.trim();
-  if(!reason&&!selectedTags.length){commentInput.style.border="2px solid red";commentInput.placeholder="打回时请填写原因或选择标签";return;}
-  commentInput.style.border="";await submitReview("rejected",reason||selectedTags.join("、"));
-});
+btnReject.addEventListener("click",async()=>{if(!currentDocId)return;const reason=commentInput.value.trim();if(!reason&&!selectedTags.length){commentInput.style.border="2px solid red";commentInput.placeholder="打回时请填写原因或选择标签";return;}commentInput.style.border="";await submitReview("rejected",reason||selectedTags.join("、"));});
 async function submitReview(status,rejectReason){
-  const comment=commentInput?commentInput.value.trim():"";const item=allDocs.find(d=>d.id===currentDocId);const nc=[...(item?.comments||[])];
+  const comment=commentInput.value.trim();const item=allDocs.find(d=>d.id===currentDocId);const nc=[...(item?.comments||[])];
   if(comment||selectedTags.length)nc.push({user:currentUser,text:comment,tags:[...selectedTags],time:new Date().toISOString(),action:status});
   await sb.from("images").update({status,reject_reason:status==="rejected"?rejectReason:"",tags:selectedTags,comments:nc,reviewed_by:currentUser,updated_at:new Date().toISOString()}).eq("id",currentDocId);
   closeModal();
 }
-
-btnDelete.addEventListener("click",async()=>{
-  if(!currentDocId)return;
-  if(!confirm("确定删除这张图片？"))return;
-  await sb.from("images").delete().eq("id",currentDocId);closeModal();
-});
-
+btnDelete.addEventListener("click",async()=>{if(!currentDocId)return;if(!confirm("确定删除？"))return;await sb.from("images").delete().eq("id",currentDocId);closeModal();});
 replaceBtn.addEventListener("click",async()=>{
   const f=replaceInput.files[0];if(!f){replaceStatus.textContent="请先选择文件";return;}
   replaceStatus.textContent="正在上传...";
@@ -350,7 +368,6 @@ replaceBtn.addEventListener("click",async()=>{
   await sb.from("images").update({url:u.publicUrl,storage_path:path,status:"pending",tags:[],updated_at:new Date().toISOString(),replaced_by:currentUser}).eq("id",currentDocId);
   replaceStatus.textContent="替换成功！";replaceInput.value="";setTimeout(closeModal,1200);
 });
-
 function fmt(iso){if(!iso)return"";const d=new Date(iso);return(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
 </script>
 </body>
