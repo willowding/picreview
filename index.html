@@ -270,7 +270,7 @@ async function handleFiles(files){
 // 图片列表
 const grid=document.getElementById("grid"),emptyHint=document.getElementById("emptyHint"),statsBar=document.getElementById("statsBar");
 let allDocs=[],activeFilter="all";
-async function loadImages(){const{data}=await sb.from("images").select("*").order("created_at",{ascending:false});allDocs=data||[];renderGrid();}
+async function loadImages(){const{data}=await sb.from("images").select("*").order("filename",{ascending:false});allDocs=data||[];renderGrid();}
 sb.channel("ch").on("postgres_changes",{event:"*",schema:"public",table:"images"},()=>loadImages()).subscribe();
 loadImages();
 function getFiltered(){return activeFilter==="all"?allDocs:allDocs.filter(d=>d.status===activeFilter);}
