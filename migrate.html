@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8"/>
+<title>PicReview 旧图迁移到 Cloudinary</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:880px;margin:30px auto;padding:0 16px;color:#222;background:#f6f7fb}
+h1{font-size:1.4rem}
+.card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.05);margin-bottom:16px}
+button{background:#2563eb;color:#fff;border:0;border-radius:6px;padding:10px 18px;font-size:.95rem;cursor:pointer;margin-right:8px}
+button:disabled{background:#9ca3af;cursor:not-allowed}
+button.warn{background:#dc2626}
+.bar{background:#e5e7eb;height:14px;border-radius:7px;overflow:hidden;margin:10px 0}
+.bar>div{background:#10b981;height:100%;width:0;transition:width .2s}
+#log{font-family:Consolas,Monaco,monospace;font-size:.78rem;background:#0f172a;color:#cbd5e1;padding:12px;border-radius:8px;height:340px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+.log-ok{color:#86efac}.log-skip{color:#fbbf24}.log-err{color:#f87171}.log-info{color:#93c5fd}
+.stats{display:flex;gap:18px;flex-wrap:wrap;font-size:.9rem;margin:8px 0}
+.stats span b{color:#2563eb}
+input[type=number]{padding:6px 10px;border:1px solid #d1d5db;border-radius:5px;width:80px}
+label{font-size:.9rem;color:#444}
+</style>
+</head>
+<body>
+<h1>PicReview 旧图迁移到 Cloudinary</h1>
+
+<div class="card">
+  <p style="margin-top:0;color:#555;font-size:.92rem">
+    把数据库里 URL 还指向 Supabase Storage 的图片逐张下载、上传到 Cloudinary、更新数据库。<br>
+    已经在 Cloudinary 上的图自动跳过；可随时暂停，下次继续。
+  </p>
+  <div>
+    <label>每秒最多处理：<input id="rate" type="number" value="2" min="1" max="10"/> 张</label>
+    &nbsp;&nbsp;
+    <label><input id="dryRun" type="checkbox"/> 试运行（不写库）</label>
+  </div>
+  <div style="margin-top:12px">
+    <button id="btnScan">1. 扫描待迁移</button>
+    <button id="btnStart" disabled>2. 开始迁移</button>
+    <button id="btnPause" class="warn" disabled>暂停</button>
+  </div>
+  <div class="bar"><div id="bar"></div></div>
+  <div class="stats">
+    <span>待迁移：<b id="sTodo">-</b></span>
+    <span>成功：<b id="sOk">0</b></span>
+    <span>跳过：<b id="sSkip">0</b></span>
+    <span>失败：<b id="sErr">0</b></span>
+    <span>当前：<b id="sCur">-</b></span>
+  </div>
+</div>
+
+<div class="card">
+  <div id="log"></div>
+</div>
+
+<script type="module">
+import {createClient} from "https://esm.sh/@supabase/supabase-js@2";
+const sb=createClient("https://ptxkeywyujftzusjvrrh.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0eGtleXd5dWpmdHp1c2p2cnJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NTY3NTEsImV4cCI6MjA5NDEzMjc1MX0.Y5AUQR4emWXbBcW_NB_yGb2FrrjBgIA5DK-rcyaISqg");
+const CLD_NAME="deretv9xp",CLD_PRESET="picreview";
+
+const $=id=>document.getElementById(id);
+const logBox=$("log");
+function log(msg,cls){const d=document.createElement("div");if(cls)d.className="log-"+cls;d.textContent="["+new Date().toLocaleTimeString()+"] "+msg;logBox.appendChild(d);logBox.scrollTop=logBox.scrollHeight;}
+
+let queue=[],paused=false,running=false,ok=0,skip=0,err=0;
+
+function isCloudinary(u){return typeof u==="string"&&u.indexOf("res.cloudinary.com")>-1;}
+
+async function scan(){
+  $("btnScan").disabled=true;log("正在扫描数据库…","info");
+  const all=[];let from=0,size=1000;
+  while(true){
+    const{data,error}=await sb.from("images").select("id,url,filename").range(from,from+size-1);
+    if(error){log("扫描失败："+error.message,"err");$("btnScan").disabled=false;return;}
+    if(!data||!data.length)break;
+    all.push(...data);
+    if(data.length<size)break;
+    from+=size;
+  }
+  queue=all.filter(r=>!isCloudinary(r.url));
+  $("sTodo").textContent=queue.length;
+  log("总图片 "+all.length+"，需要迁移 "+queue.length+" 张","info");
+  $("btnStart").disabled=queue.length===0;
+  $("btnScan").disabled=false;
+}
+
+async function uploadToCloudinary(blob,filename){
+  const fd=new FormData();
+  fd.append("file",blob,filename||"img");
+  fd.append("upload_preset",CLD_PRESET);
+  const r=await fetch("https://api.cloudinary.com/v1_1/"+CLD_NAME+"/image/upload",{method:"POST",body:fd});
+  if(!r.ok){const t=await r.text();throw new Error("Cloudinary "+r.status+": "+t.slice(0,200));}
+  return await r.json();
+}
+
+async function migrateOne(row){
+  $("sCur").textContent=row.filename||row.id;
+  if(isCloudinary(row.url)){skip++;$("sSkip").textContent=skip;log("跳过(已是CLD): "+(row.filename||row.id),"skip");return;}
+  let blob;
+  try{
+    const resp=await fetch(row.url);
+    if(!resp.ok)throw new Error("HTTP "+resp.status);
+    blob=await resp.blob();
+  }catch(e){err++;$("sErr").textContent=err;log("下载失败 "+(row.filename||row.id)+"："+e.message,"err");return;}
+  let j;
+  try{j=await uploadToCloudinary(blob,row.filename);}
+  catch(e){err++;$("sErr").textContent=err;log("上传失败 "+(row.filename||row.id)+"："+e.message,"err");return;}
+  if(!$("dryRun").checked){
+    const{error:ue}=await sb.from("images").update({url:j.secure_url,storage_path:j.public_id}).eq("id",row.id);
+    if(ue){err++;$("sErr").textContent=err;log("更新DB失败 "+row.id+"："+ue.message,"err");return;}
+  }
+  ok++;$("sOk").textContent=ok;
+  log("OK "+(row.filename||row.id)+" → "+j.secure_url,"ok");
+}
+
+async function start(){
+  if(running)return;running=true;paused=false;
+  $("btnStart").disabled=true;$("btnScan").disabled=true;$("btnPause").disabled=false;
+  const total=queue.length;const rate=Math.max(1,parseInt($("rate").value)||2);const gap=Math.ceil(1000/rate);
+  log("开始迁移，速率 "+rate+"/s"+($("dryRun").checked?"（试运行）":""),"info");
+  while(queue.length){
+    if(paused){log("已暂停。剩余 "+queue.length,"info");break;}
+    const row=queue.shift();
+    const t0=Date.now();
+    await migrateOne(row);
+    const done=total-queue.length;
+    $("bar").style.width=(done/total*100).toFixed(1)+"%";
+    const dt=Date.now()-t0;if(dt<gap)await new Promise(r=>setTimeout(r,gap-dt));
+  }
+  running=false;$("btnPause").disabled=true;$("btnScan").disabled=false;
+  if(!queue.length){log("全部完成。成功 "+ok+"，跳过 "+skip+"，失败 "+err,"info");$("sCur").textContent="-";}
+  else{$("btnStart").disabled=false;}
+}
+
+$("btnScan").addEventListener("click",scan);
+$("btnStart").addEventListener("click",start);
+$("btnPause").addEventListener("click",()=>{paused=true;});
+</script>
+</body>
+</html>
