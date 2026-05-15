@@ -228,6 +228,16 @@ main{padding:24px}
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 const sb = createClient("https://ptxkeywyujftzusjvrrh.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0eGtleXd5dWpmdHp1c2p2cnJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NTY3NTEsImV4cCI6MjA5NDEzMjc1MX0.Y5AUQR4emWXbBcW_NB_yGb2FrrjBgIA5DK-rcyaISqg");
+const CLD_NAME="deretv9xp",CLD_PRESET="picreview";
+async function cldUpload(file){
+  const fd=new FormData();fd.append("file",file);fd.append("upload_preset",CLD_PRESET);
+  const r=await fetch("https://api.cloudinary.com/v1_1/"+CLD_NAME+"/image/upload",{method:"POST",body:fd});
+  if(!r.ok){const t=await r.text();throw new Error("Cloudinary "+r.status+": "+t);}
+  return await r.json();
+}
+function cldVariant(url,t){if(!url||url.indexOf("res.cloudinary.com")===-1)return url;return url.replace("/upload/","/upload/"+t+"/");}
+function imgThumb(url){return cldVariant(url,"w_300,h_300,c_fill,q_auto,f_auto");}
+function imgMid(url){return cldVariant(url,"w_1280,q_auto,f_auto");}
 let selectModeOn=!1,selectedIds=new Set();
 function refreshBatchBar(){
   const iv=document.getElementById("imagesView"),bar=document.getElementById("batchBar");
@@ -345,23 +355,23 @@ async function handleFiles(files){
     if(pid===null)qn=qn.is("project_id",null);else qn=qn.eq("project_id",pid);
     const{data:sameName}=await qn;
     if(sameName&&sameName.length){
-      const path=Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+f.name;
-      const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
-      if(e){done++;progressBar.style.width=(done/total*100)+"%";return;}
-      const{data:u}=sb.storage.from("images").getPublicUrl(path);
-      await sb.from("images").update({url:u.publicUrl,storage_path:path,file_hash:hash,status:"pending",updated_at:new Date().toISOString(),replaced_by:currentUser,reject_reason:"",tags:[],claimed_by:null,claimed_at:null}).eq("id",sameName[0].id);
-      replaced++;done++;progressBar.style.width=(done/total*100)+"%";
+      try{
+        const j=await cldUpload(f);
+        await sb.from("images").update({url:j.secure_url,storage_path:j.public_id,file_hash:hash,status:"pending",updated_at:new Date().toISOString(),replaced_by:currentUser,reject_reason:"",tags:[],claimed_by:null,claimed_at:null}).eq("id",sameName[0].id);
+        replaced++;
+      }catch(err){console.error(err);}
+      done++;progressBar.style.width=(done/total*100)+"%";
       uploadStatus.textContent="处理中 "+done+" / "+total+"（同名替换）";
       return;
     }
     const{data:byHash}=await sb.from("images").select("id,filename").eq("file_hash",hash).limit(1);
     if(byHash&&byHash.length){skipped++;done++;progressBar.style.width=(done/total*100)+"%";uploadStatus.textContent="跳过重复："+f.name;return;}
-    const path=Date.now()+"_"+Math.random().toString(36).slice(2)+"_"+f.name;
-    const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
-    if(e){done++;progressBar.style.width=(done/total*100)+"%";return;}
-    const{data:u}=sb.storage.from("images").getPublicUrl(path);
-    await sb.from("images").insert({url:u.publicUrl,storage_path:path,filename:f.name,file_hash:hash,uploader:currentUser,status:"pending",tags:[],comments:[],project_id:pid,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
-    inserted++;done++;progressBar.style.width=(done/total*100)+"%";uploadStatus.textContent="上传中 "+done+" / "+total;
+    try{
+      const j=await cldUpload(f);
+      await sb.from("images").insert({url:j.secure_url,storage_path:j.public_id,filename:f.name,file_hash:hash,uploader:currentUser,status:"pending",tags:[],comments:[],project_id:pid,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+      inserted++;
+    }catch(err){console.error(err);uploadStatus.textContent="上传失败："+f.name+" "+err.message;}
+    done++;progressBar.style.width=(done/total*100)+"%";uploadStatus.textContent="上传中 "+done+" / "+total;
   }
   for(let i=0;i<imgs.length;i+=4)await Promise.allSettled(imgs.slice(i,i+4).map(uploadOne));
   uploadStatus.textContent="完成：新上传 "+inserted+"，同名替换 "+replaced+(skipped>0?"，跳过重复 "+skipped:"");
@@ -394,7 +404,7 @@ function renderGrid(){
     const cb=document.createElement("input");cb.type="checkbox";cb.checked=selectedIds.has(item.id);
     sel.appendChild(cb);wrap.appendChild(sel);
     const card=document.createElement("div");card.className="card";
-    card.innerHTML='<img src="'+item.url+'" alt="" loading="lazy"/><div class="info"><span class="badge badge-'+item.status+'">'+statusLabel(item.status)+'</span><div class="filename">'+(item.filename||"图片")+'</div><div style="font-size:.72rem;color:#888;margin-top:2px">'+(item.uploader||"")+'</div>'+(item.status==="rejected"&&item.reject_reason?'<div class="reject-reason">'+item.reject_reason+'</div>':'')+'</div>';
+    card.innerHTML='<img src="'+imgThumb(item.url)+'" alt="" loading="lazy"/><div class="info"><span class="badge badge-'+item.status+'">'+statusLabel(item.status)+'</span><div class="filename">'+(item.filename||"图片")+'</div><div style="font-size:.72rem;color:#888;margin-top:2px">'+(item.uploader||"")+'</div>'+(item.status==="rejected"&&item.reject_reason?'<div class="reject-reason">'+item.reject_reason+'</div>':'')+'</div>';
     wrap.appendChild(card);
     cb.addEventListener("change",e=>{e.stopPropagation();if(cb.checked)selectedIds.add(item.id);else selectedIds.delete(item.id);wrap.classList.toggle("selected",cb.checked);updateBatchCount();});
     cb.addEventListener("click",e=>e.stopPropagation());
@@ -433,7 +443,7 @@ const modal=document.getElementById("modal"),modalImg=document.getElementById("m
 let selectedTags=[],currentDocId=null,currentList=[],currentIndex=-1;
 function openModal(item,list){currentList=list||getFiltered();currentIndex=currentList.findIndex(d=>d.id===item.id);loadItem(item);modal.classList.add("open");}
 function loadItem(item){
-  currentDocId=item.id;selectedTags=[];modalImg.src=item.url;modalFilename.textContent=item.filename||"图片";
+  currentDocId=item.id;selectedTags=[];modalImg.src=imgMid(item.url);modalFilename.textContent=item.filename||"图片";
   modalUploader.textContent="上传人："+(item.uploader||"—")+"  |  状态："+statusLabel(item.status)+(item.claimed_by?"  |  认领："+item.claimed_by:"");
   commentInput.value="";replaceStatus.textContent="";commentInput.style.border="";
   document.querySelectorAll(".tag").forEach(t=>t.classList.remove("selected"));
@@ -487,11 +497,8 @@ replaceBtn.addEventListener("click",async()=>{
   const f=replaceInput.files[0];if(!f){replaceStatus.textContent="请先选择文件";return;}
   replaceStatus.textContent="正在上传...";
   const hash=await hashFile(f);
-  const path=Date.now()+"_"+f.name;
-  const{error:e}=await sb.storage.from("images").upload(path,f,{upsert:false});
-  if(e){replaceStatus.textContent="失败："+e.message;return;}
-  const{data:u}=sb.storage.from("images").getPublicUrl(path);
-  await sb.from("images").update({url:u.publicUrl,storage_path:path,file_hash:hash,status:"pending",tags:[],updated_at:new Date().toISOString(),replaced_by:currentUser,claimed_by:null,claimed_at:null}).eq("id",currentDocId);
+  let j;try{j=await cldUpload(f);}catch(err){replaceStatus.textContent="失败："+err.message;return;}
+  await sb.from("images").update({url:j.secure_url,storage_path:j.public_id,file_hash:hash,status:"pending",tags:[],updated_at:new Date().toISOString(),replaced_by:currentUser,claimed_by:null,claimed_at:null}).eq("id",currentDocId);
   replaceStatus.textContent="替换成功！";replaceInput.value="";setTimeout(closeModal,1200);
 });
 function fmt(iso){if(!iso)return"";const d=new Date(iso);return(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
