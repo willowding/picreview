@@ -894,17 +894,17 @@ async function loadImages(){
   const{data}=await q;allDocs=data||[];renderGrid();
 }
 sb.channel("img-ch").on("postgres_changes",{event:"*",schema:"public",table:"images"},()=>{if(currentProjectId!==null)loadImages();else loadProjects();}).subscribe();
-function itemStatus(item){return(item.claimed_by&&item.status==="pending")?"claimed":item.status;}
+function itemStatus(item){return(item.claimed_by&&item.status==="rejected")?"claimed":item.status;}
 function statusLabel(s){return{pending:"待审核",approved:"已通过",rejected:"已打回",claimed:"已认领"}[s]||s;}
 function getFiltered(){
   if(activeFilter==="all")return allDocs;
-  if(activeFilter==="claimed")return allDocs.filter(d=>d.claimed_by&&d.status==="pending");
-  if(activeFilter==="pending")return allDocs.filter(d=>d.status==="pending"&&!d.claimed_by);
+  if(activeFilter==="claimed")return allDocs.filter(d=>d.claimed_by&&d.status==="rejected");
+  if(activeFilter==="rejected")return allDocs.filter(d=>d.status==="rejected"&&!d.claimed_by);
   return allDocs.filter(d=>d.status===activeFilter);
 }
 function renderGrid(){
   const filtered=getFiltered();grid.innerHTML="";emptyHint.style.display=filtered.length===0?"block":"none";
-  const p=allDocs.filter(d=>d.status==="pending"&&!d.claimed_by).length,cl=allDocs.filter(d=>d.claimed_by&&d.status==="pending").length,a=allDocs.filter(d=>d.status==="approved").length,r=allDocs.filter(d=>d.status==="rejected").length;
+  const p=allDocs.filter(d=>d.status==="pending").length,cl=allDocs.filter(d=>d.claimed_by&&d.status==="rejected").length,a=allDocs.filter(d=>d.status==="approved").length,r=allDocs.filter(d=>d.status==="rejected"&&!d.claimed_by).length;
   statsBar.textContent="共 "+allDocs.length+" 张 | 待审 "+p+" | 认领 "+cl+" | 通过 "+a+" | 打回 "+r;
   filtered.forEach(item=>{
     const wrap=document.createElement("div");
@@ -966,7 +966,7 @@ function loadItem(item){
   document.querySelectorAll(".tag").forEach(t=>t.classList.remove("selected"));
   if(item.claimed_by){modalClaimPin.textContent="我来改！ "+item.claimed_by;modalClaimPin.classList.add("show");}
   else{modalClaimPin.textContent="";modalClaimPin.classList.remove("show");}
-  if(currentRole==="reviewer"){
+  if(currentRole==="reviewer"&&item.status==="rejected"){
     btnClaim.textContent=item.claimed_by?"抢夺认领":"我来改！";
     btnClaim.style.display="inline-block";
     btnUnclaim.style.display=item.claimed_by?"inline-block":"none";
