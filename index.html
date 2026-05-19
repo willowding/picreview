@@ -27,6 +27,20 @@ main{padding:24px}
 .folder-card .folder-name{font-weight:700;font-size:1rem;word-break:break-all}
 .folder-card .folder-meta{font-size:.78rem;color:#888}
 .folder-card .folder-stats{display:flex;gap:6px;flex-wrap:wrap}
+.folder-card{position:relative}
+.level-tag{position:absolute;top:12px;right:12px;border-radius:10px;padding:2px 9px;font-size:.72rem;font-weight:800;letter-spacing:.03em}
+.level-L1{background:#f8d7da;color:#842029}
+.level-L2{background:#ffe5d0;color:#7d3400}
+.level-L3{background:#fff3cd;color:#856404}
+.level-L4{background:#d1e7dd;color:#0f5132}
+.level-L5{background:#cfe2ff;color:#084298}
+.level-L6{background:#e2d9f3;color:#3d0a91}
+.projects-search{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.projects-search input{flex:1;min-width:160px;padding:8px 14px;border:1px solid #ccc;border-radius:20px;font-size:.9rem;font-family:inherit}
+.projects-search input:focus{outline:none;border-color:#1a73e8}
+.level-btn{padding:5px 14px;border-radius:20px;font-size:.82rem;font-weight:700;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.level-btn.active{border-color:currentColor!important;opacity:1}
+.level-btn:not(.active){opacity:.65}
 .filter-bar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
 .filter-bar button{padding:6px 18px;border:2px solid #ccc;background:#fff;border-radius:20px;cursor:pointer;font-size:.9rem;transition:all .15s}
 .filter-bar button.active,.filter-bar button:hover{border-color:#1a73e8;color:#1a73e8;background:#e8f0fe}
@@ -148,6 +162,16 @@ main{padding:24px}
     <div class="projects-header">
       <h2>📁 所有文件夹</h2>
       <button class="btn-new-folder" id="btnNewFolder">+ 新建文件夹</button>
+    </div>
+    <div class="projects-search">
+      <input id="folderSearch" type="text" placeholder="搜索文件夹名称…"/>
+      <button class="level-btn" style="background:#f8d7da;color:#842029" data-level="L1">L1</button>
+      <button class="level-btn" style="background:#ffe5d0;color:#7d3400" data-level="L2">L2</button>
+      <button class="level-btn" style="background:#fff3cd;color:#856404" data-level="L3">L3</button>
+      <button class="level-btn" style="background:#d1e7dd;color:#0f5132" data-level="L4">L4</button>
+      <button class="level-btn" style="background:#cfe2ff;color:#084298" data-level="L5">L5</button>
+      <button class="level-btn" style="background:#e2d9f3;color:#3d0a91" data-level="L6">L6</button>
+      <button class="level-btn" style="background:#e9ecef;color:#555" data-level="">全部</button>
     </div>
     <div class="projects-grid" id="projectsGrid"></div>
   </div>
@@ -794,25 +818,33 @@ async function loadProjects(){
     counts[k]=(counts[k]||0)+1;
     if(img.status==="pending")pending[k]=(pending[k]||0)+1;
   });
+  const searchQ=(document.getElementById("folderSearch")||{value:""}).value.trim().toLowerCase();
+  const activeLv=document.querySelector(".level-btn.active");
+  const lvFilter=activeLv?activeLv.dataset.level:"";
   projectsGrid.innerHTML="";
   // 未分类
   const ucTotal=counts["__uncat__"]||0;
   const ucPending=pending["__uncat__"]||0;
-  if(ucTotal>0){
+  if(ucTotal>0&&!lvFilter&&(!searchQ||"未分类".includes(searchQ))){
     const card=makeProjectCard("__uncat__","未分类",ucTotal,ucPending,"系统","");
     projectsGrid.appendChild(card);
   }
   (projects||[]).forEach(p=>{
+    if(searchQ&&!p.name.toLowerCase().includes(searchQ))return;
+    if(lvFilter&&detectLevel(p.name)!==lvFilter)return;
     const total=counts[p.id]||0;
     const pend=pending[p.id]||0;
     projectsGrid.appendChild(makeProjectCard(p.id,p.name,total,pend,p.created_by,p.created_at));
   });
 }
 
+function detectLevel(name){const m=(name||"").match(/\bL([1-6])\b/i);return m?"L"+m[1]:"";}
 function makeProjectCard(id,name,total,pend,createdBy,createdAt){
   const card=document.createElement("div");card.className="folder-card";
   const dateStr=createdAt?fmt(createdAt):"";
-  card.innerHTML='<div class="folder-icon">📁</div><div class="folder-name">'+name+'</div><div class="folder-stats"><span class="badge badge-pending">待审 '+pend+'</span><span class="badge" style="background:#e9ecef;color:#555">共 '+total+' 张</span></div><div class="folder-meta">'+(createdBy||"")+(dateStr?" · "+dateStr:"")+'</div>';
+  const lv=detectLevel(name);
+  const lvTag=lv?'<span class="level-tag level-'+lv+'">'+lv+'</span>':"";
+  card.innerHTML=lvTag+'<div class="folder-icon">📁</div><div class="folder-name">'+name+'</div><div class="folder-stats"><span class="badge badge-pending">待审 '+pend+'</span><span class="badge" style="background:#e9ecef;color:#555">共 '+total+' 张</span></div><div class="folder-meta">'+(createdBy||"")+(dateStr?" · "+dateStr:"")+'</div>';
   card.addEventListener("click",()=>openProject(id,name));
   return card;
 }
@@ -839,6 +871,15 @@ function goBack(){currentProjectId=null;currentProjectName="";projectsView.style
 document.getElementById("btnBack").addEventListener("click",goBack);
 
 sb.channel("proj-ch").on("postgres_changes",{event:"*",schema:"public",table:"projects"},()=>{if(currentProjectId===null)loadProjects();}).subscribe();
+document.getElementById("folderSearch").addEventListener("input",loadProjects);
+document.querySelectorAll(".level-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const already=btn.classList.contains("active");
+    document.querySelectorAll(".level-btn").forEach(b=>b.classList.remove("active"));
+    if(!already)btn.classList.add("active");
+    loadProjects();
+  });
+});
 loadProjects();
 
 // 上传
