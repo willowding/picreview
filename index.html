@@ -792,7 +792,7 @@ document.querySelectorAll(".role-card").forEach(c=>{c.addEventListener("click",(
 function applyLogin(){
   if(!currentUser||!currentRole)return;
   loginMask.style.display="none";
-  const badge=currentRole==="uploader"?'<span class="role-badge-uploader">上传方</span>':'<span class="role-badge-reviewer">审核员</span>';
+  const badge=currentRole==="uploader"?'<span class="role-badge-uploader">上传</span>':'<span class="role-badge-reviewer">审核</span>';
   roleLabel.innerHTML=currentUser+badge;
   document.getElementById("uploadArea").style.display=currentRole==="uploader"?"block":"none";
   document.getElementById("reviewerSection").style.display=currentRole==="reviewer"?"block":"none";
