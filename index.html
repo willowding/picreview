@@ -163,16 +163,6 @@ main{padding:24px}
       <h2>📁 所有文件夹</h2>
       <button class="btn-new-folder" id="btnNewFolder">+ 新建文件夹</button>
     </div>
-    <div class="projects-search">
-      <input id="folderSearch" type="text" placeholder="搜索文件夹名称…"/>
-      <button class="level-btn" style="background:#f8d7da;color:#842029" data-level="L1">L1</button>
-      <button class="level-btn" style="background:#ffe5d0;color:#7d3400" data-level="L2">L2</button>
-      <button class="level-btn" style="background:#fff3cd;color:#856404" data-level="L3">L3</button>
-      <button class="level-btn" style="background:#d1e7dd;color:#0f5132" data-level="L4">L4</button>
-      <button class="level-btn" style="background:#cfe2ff;color:#084298" data-level="L5">L5</button>
-      <button class="level-btn" style="background:#e2d9f3;color:#3d0a91" data-level="L6">L6</button>
-      <button class="level-btn" style="background:#e9ecef;color:#555" data-level="">全部</button>
-    </div>
     <div class="projects-grid" id="projectsGrid"></div>
   </div>
   <!-- 图片视图 -->
@@ -180,6 +170,18 @@ main{padding:24px}
     <div class="back-bar">
       <button class="btn-back" id="btnBack">← 返回</button>
       <span class="project-title" id="projectTitle"></span>
+    </div>
+    <div class="projects-search" id="imgSearchBar">
+      <input id="imgSearch" type="text" placeholder="搜索文件名…"/>
+      <div id="levelBtns" style="display:none;display:contents">
+        <button class="level-btn" style="background:#f8d7da;color:#842029" data-level="L1">L1</button>
+        <button class="level-btn" style="background:#ffe5d0;color:#7d3400" data-level="L2">L2</button>
+        <button class="level-btn" style="background:#fff3cd;color:#856404" data-level="L3">L3</button>
+        <button class="level-btn" style="background:#d1e7dd;color:#0f5132" data-level="L4">L4</button>
+        <button class="level-btn" style="background:#cfe2ff;color:#084298" data-level="L5">L5</button>
+        <button class="level-btn" style="background:#e2d9f3;color:#3d0a91" data-level="L6">L6</button>
+        <button class="level-btn" style="background:#e9ecef;color:#555" data-level="">全部</button>
+      </div>
     </div>
     <div id="uploadArea">
       <div style="font-size:2.5rem">📤</div>
@@ -818,22 +820,12 @@ async function loadProjects(){
     counts[k]=(counts[k]||0)+1;
     if(img.status==="pending")pending[k]=(pending[k]||0)+1;
   });
-  const searchQ=(document.getElementById("folderSearch")||{value:""}).value.trim().toLowerCase();
-  const activeLv=document.querySelector(".level-btn.active");
-  const lvFilter=activeLv?activeLv.dataset.level:"";
   projectsGrid.innerHTML="";
-  // 未分类
   const ucTotal=counts["__uncat__"]||0;
   const ucPending=pending["__uncat__"]||0;
-  if(ucTotal>0&&!lvFilter&&(!searchQ||"未分类".includes(searchQ))){
-    const card=makeProjectCard("__uncat__","未分类",ucTotal,ucPending,"系统","");
-    projectsGrid.appendChild(card);
-  }
+  if(ucTotal>0){const card=makeProjectCard("__uncat__","未分类",ucTotal,ucPending,"系统","");projectsGrid.appendChild(card);}
   (projects||[]).forEach(p=>{
-    if(searchQ&&!p.name.toLowerCase().includes(searchQ))return;
-    if(lvFilter&&detectLevel(p.name)!==lvFilter)return;
-    const total=counts[p.id]||0;
-    const pend=pending[p.id]||0;
+    const total=counts[p.id]||0;const pend=pending[p.id]||0;
     projectsGrid.appendChild(makeProjectCard(p.id,p.name,total,pend,p.created_by,p.created_at));
   });
 }
@@ -864,6 +856,10 @@ function openProject(id,name){
   projectsView.style.display="none";imagesView.style.display="block";
   projectTitle.textContent=name;headerTitle.textContent="PicReview / "+name;
   activeFilter="all";document.querySelectorAll(".filter-bar button").forEach(b=>b.classList.remove("active"));document.querySelector(".filter-bar button[data-filter='all']").classList.add("active");
+  document.getElementById("imgSearch").value="";
+  document.querySelectorAll(".level-btn").forEach(b=>b.classList.remove("active"));
+  const isEng=name&&name.includes("英语绘本");
+  document.getElementById("levelBtns").style.display=isEng?"contents":"none";
   refreshBatchBar();loadImages();
 }
 
@@ -871,13 +867,13 @@ function goBack(){currentProjectId=null;currentProjectName="";projectsView.style
 document.getElementById("btnBack").addEventListener("click",goBack);
 
 sb.channel("proj-ch").on("postgres_changes",{event:"*",schema:"public",table:"projects"},()=>{if(currentProjectId===null)loadProjects();}).subscribe();
-document.getElementById("folderSearch").addEventListener("input",loadProjects);
+document.getElementById("imgSearch").addEventListener("input",()=>renderGrid());
 document.querySelectorAll(".level-btn").forEach(btn=>{
   btn.addEventListener("click",()=>{
     const already=btn.classList.contains("active");
     document.querySelectorAll(".level-btn").forEach(b=>b.classList.remove("active"));
     if(!already)btn.classList.add("active");
-    loadProjects();
+    renderGrid();
   });
 });
 loadProjects();
@@ -928,20 +924,49 @@ async function handleFiles(files){
 // 图片列表
 const grid=document.getElementById("grid"),emptyHint=document.getElementById("emptyHint"),statsBar=document.getElementById("statsBar");
 let allDocs=[],activeFilter="all";
+function parseImgName(fn){
+  const base=(fn||"").replace(/\.[^.]+$/,"");
+  const parts=base.split("_");
+  const lvM=parts[0]&&parts[0].match(/L(\d+)/i);
+  const lv=lvM?parseInt(lvM[1]):99;
+  const book=parts.length>=2?parts.slice(1,-1).join("_"):"";
+  const scM=parts[parts.length-1]&&parts[parts.length-1].match(/(\d+)/);
+  const scene=scM?parseInt(scM[1]):0;
+  return{lv,book,scene};
+}
+function sortImages(docs){
+  const isEng=currentProjectName&&currentProjectName.includes("英语绘本");
+  if(isEng){
+    return[...docs].sort((a,b)=>{
+      const pa=parseImgName(a.filename),pb=parseImgName(b.filename);
+      if(pa.lv!==pb.lv)return pa.lv-pb.lv;
+      const bc=pa.book.localeCompare(pb.book,"en");
+      if(bc!==0)return bc;
+      return pa.scene-pb.scene;
+    });
+  }
+  return[...docs].sort((a,b)=>(b.filename||"").localeCompare(a.filename||""));
+}
 async function loadImages(){
-  let q=sb.from("images").select("*").order("filename",{ascending:false});
+  let q=sb.from("images").select("*");
   if(currentProjectId==="__uncat__")q=q.is("project_id",null);
   else q=q.eq("project_id",currentProjectId);
-  const{data}=await q;allDocs=data||[];renderGrid();
+  const{data}=await q;allDocs=sortImages(data||[]);renderGrid();
 }
 sb.channel("img-ch").on("postgres_changes",{event:"*",schema:"public",table:"images"},()=>{if(currentProjectId!==null)loadImages();else loadProjects();}).subscribe();
 function itemStatus(item){return(item.claimed_by&&item.status==="rejected")?"claimed":item.status;}
 function statusLabel(s){return{pending:"待审核",approved:"已通过",rejected:"已打回",claimed:"已认领"}[s]||s;}
 function getFiltered(){
-  if(activeFilter==="all")return allDocs;
-  if(activeFilter==="claimed")return allDocs.filter(d=>d.claimed_by&&d.status==="rejected");
-  if(activeFilter==="rejected")return allDocs.filter(d=>d.status==="rejected"&&!d.claimed_by);
-  return allDocs.filter(d=>d.status===activeFilter);
+  const searchQ=(document.getElementById("imgSearch")||{value:""}).value.trim().toLowerCase();
+  const activeLv=document.querySelector(".level-btn.active");
+  const lvFilter=activeLv?activeLv.dataset.level:"";
+  let docs=allDocs;
+  if(activeFilter==="claimed")docs=docs.filter(d=>d.claimed_by&&d.status==="rejected");
+  else if(activeFilter==="rejected")docs=docs.filter(d=>d.status==="rejected"&&!d.claimed_by);
+  else if(activeFilter!=="all")docs=docs.filter(d=>d.status===activeFilter);
+  if(searchQ)docs=docs.filter(d=>(d.filename||"").toLowerCase().includes(searchQ));
+  if(lvFilter)docs=docs.filter(d=>{const lv=parseImgName(d.filename).lv;return lv!==99&&"L"+lv===lvFilter;});
+  return docs;
 }
 function renderGrid(){
   const filtered=getFiltered();grid.innerHTML="";emptyHint.style.display=filtered.length===0?"block":"none";
