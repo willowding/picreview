@@ -996,7 +996,7 @@ function renderGrid(){
     sel.appendChild(cb);wrap.appendChild(sel);
     const card=document.createElement("div");card.className="card";
     const ist=itemStatus(item);
-    card.innerHTML='<img src="'+imgThumb(item.url)+'" alt="" loading="lazy"/><div class="info"><span class="badge badge-'+ist+'">'+statusLabel(ist)+'</span><div class="filename">'+(item.filename||"图片")+'</div><div style="font-size:.72rem;color:#888;margin-top:2px">'+(item.uploader||"")+'</div>'+(item.status==="rejected"&&item.reject_reason?'<div class="reject-reason">'+item.reject_reason+'</div>':'')+'</div>';
+    card.innerHTML='<img src="'+imgThumb(item.url)+'" alt="" loading="lazy"/><div class="info"><span class="badge badge-'+ist+'">'+statusLabel(ist)+'</span><div class="filename">'+(item.filename||"图片")+'</div><div style="font-size:.72rem;color:#888;margin-top:2px">'+(item.replaced_by||item.uploader||"")+'</div>'+(item.status==="rejected"&&item.reject_reason?'<div class="reject-reason">'+item.reject_reason+'</div>':'')+'</div>';
     wrap.appendChild(card);
     cb.addEventListener("change",e=>{e.stopPropagation();if(cb.checked)selectedIds.add(item.id);else selectedIds.delete(item.id);wrap.classList.toggle("selected",cb.checked);updateBatchCount();});
     cb.addEventListener("click",e=>e.stopPropagation());
@@ -1040,7 +1040,7 @@ function loadItem(item){
   const csvRow=SENTENCE_MAP[fnKey];
   if(csvRow){modalSentence.textContent="关键词："+csvRow.kw+"　｜　造句："+csvRow.s;modalSentence.style.display="block";}
   else{modalSentence.style.display="none";}
-  modalUploader.textContent="上传人："+(item.uploader||"—")+"  |  状态："+statusLabel(itemStatus(item))+(item.claimed_by?"  |  认领："+item.claimed_by:"");
+  modalUploader.textContent="上传人："+(item.replaced_by||item.uploader||"—")+"  |  状态："+statusLabel(itemStatus(item))+(item.claimed_by?"  |  认领："+item.claimed_by:"");
   commentInput.value="";replaceStatus.textContent="";commentInput.style.border="";
   document.querySelectorAll(".tag").forEach(t=>t.classList.remove("selected"));
   if(item.claimed_by){modalClaimPin.textContent="我来改！ "+item.claimed_by;modalClaimPin.classList.add("show");}
