@@ -912,7 +912,7 @@ async function handleFiles(files){
     if(sameName&&sameName.length){
       try{
         const j=await cldUpload(f);
-        await sb.from("images").update({url:j.secure_url,storage_path:j.public_id,file_hash:hash,status:"pending",updated_at:new Date().toISOString(),replaced_by:currentUser,reject_reason:"",tags:[],claimed_by:null,claimed_at:null}).eq("id",sameName[0].id);
+        await sb.from("images").update({url:j.secure_url,storage_path:j.public_id,file_hash:hash,status:"pending",updated_at:new Date().toISOString(),uploader:currentUser,replaced_by:currentUser,reject_reason:"",tags:[],claimed_by:null,claimed_at:null}).eq("id",sameName[0].id);
         replaced++;
       }catch(err){console.error(err);}
       done++;progressBar.style.width=(done/total*100)+"%";
@@ -1094,7 +1094,7 @@ replaceBtn.addEventListener("click",async()=>{
   replaceStatus.textContent="正在上传...";
   const hash=await hashFile(f);
   let j;try{j=await cldUpload(f);}catch(err){replaceStatus.textContent="失败："+err.message;return;}
-  await sb.from("images").update({url:j.secure_url,storage_path:j.public_id,file_hash:hash,status:"pending",tags:[],updated_at:new Date().toISOString(),replaced_by:currentUser,claimed_by:null,claimed_at:null}).eq("id",currentDocId);
+  await sb.from("images").update({url:j.secure_url,storage_path:j.public_id,file_hash:hash,status:"pending",tags:[],updated_at:new Date().toISOString(),uploader:currentUser,replaced_by:currentUser,claimed_by:null,claimed_at:null}).eq("id",currentDocId);
   replaceStatus.textContent="替换成功！";replaceInput.value="";setTimeout(closeModal,1200);
 });
 function fmt(iso){if(!iso)return"";const d=new Date(iso);return(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
