@@ -119,6 +119,8 @@ main{padding:24px}
 .btn-delete{padding:8px 18px;background:#fff;color:#dc3545;border:2px solid #dc3545;border-radius:8px;cursor:pointer;font-size:.92rem;margin-right:auto}
 .btn-delete:hover{background:#f8d7da}
 .replaceBtn{width:100%;margin-top:8px;padding:7px;background:#dc3545;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:600}
+.btn-rename{background:none;border:none;cursor:pointer;color:#aaa;font-size:.85rem;padding:0 4px;vertical-align:middle;line-height:1}
+.btn-rename:hover{color:#1a73e8}
 #emptyHint{text-align:center;color:#aaa;margin-top:60px;font-size:1rem}
 #loginMask{position:fixed;inset:0;background:linear-gradient(135deg,#1a73e8 0%,#0d47a1 100%);display:flex;align-items:center;justify-content:center;z-index:200}
 .login-box{background:#fff;border-radius:16px;padding:40px 36px;width:360px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.25)}
@@ -233,7 +235,7 @@ main{padding:24px}
       <span id="navCounter"></span>
     </div>
     <div class="modal-body">
-      <h3 id="modalFilename"></h3>
+      <h3 id="modalFilename"></h3><button class="btn-rename" id="btnRename" title="改名" style="display:none">✏️</button>
       <p id="modalSentence" style="font-size:.85rem;color:#1a73e8;margin-bottom:6px;display:none"></p>
       <p id="modalUploader" style="font-size:.78rem;color:#888;margin-bottom:12px"></p>
       <div id="reviewerSection">
@@ -1030,11 +1032,12 @@ document.getElementById("btnBatchDelete").addEventListener("click",async()=>{
 });
 
 // 弹窗
-const modal=document.getElementById("modal"),modalImg=document.getElementById("modalImg"),modalFilename=document.getElementById("modalFilename"),modalUploader=document.getElementById("modalUploader"),commentInput=document.getElementById("commentInput"),commentsList=document.getElementById("commentsList"),btnApprove=document.getElementById("btnApprove"),btnReject=document.getElementById("btnReject"),btnDelete=document.getElementById("btnDelete"),modalClose=document.getElementById("modalClose"),replaceSection=document.getElementById("replaceSection"),replaceInput=document.getElementById("replaceInput"),replaceBtn=document.getElementById("replaceBtn"),replaceStatus=document.getElementById("replaceStatus"),btnPrev=document.getElementById("btnPrev"),btnNext=document.getElementById("btnNext"),navCounter=document.getElementById("navCounter"),modalClaimPin=document.getElementById("modalClaimPin"),btnClaim=document.getElementById("btnClaim"),btnUnclaim=document.getElementById("btnUnclaim");
+const modal=document.getElementById("modal"),modalImg=document.getElementById("modalImg"),modalFilename=document.getElementById("modalFilename"),modalUploader=document.getElementById("modalUploader"),commentInput=document.getElementById("commentInput"),commentsList=document.getElementById("commentsList"),btnApprove=document.getElementById("btnApprove"),btnReject=document.getElementById("btnReject"),btnDelete=document.getElementById("btnDelete"),modalClose=document.getElementById("modalClose"),replaceSection=document.getElementById("replaceSection"),replaceInput=document.getElementById("replaceInput"),replaceBtn=document.getElementById("replaceBtn"),replaceStatus=document.getElementById("replaceStatus"),btnPrev=document.getElementById("btnPrev"),btnNext=document.getElementById("btnNext"),navCounter=document.getElementById("navCounter"),modalClaimPin=document.getElementById("modalClaimPin"),btnClaim=document.getElementById("btnClaim"),btnUnclaim=document.getElementById("btnUnclaim"),btnRename=document.getElementById("btnRename");
 let selectedTags=[],currentDocId=null,currentList=[],currentIndex=-1;
 function openModal(item,list){currentList=list||getFiltered();currentIndex=currentList.findIndex(d=>d.id===item.id);loadItem(item);modal.classList.add("open");}
 function loadItem(item){
   currentDocId=item.id;selectedTags=[];modalImg.src=imgMid(item.url);modalFilename.textContent=item.filename||"图片";
+  btnRename.style.display=currentRole==="uploader"?"inline":"none";
   const modalSentence=document.getElementById("modalSentence");
   const fnKey=(item.filename||"").replace(/\.[^.]+$/,"").replace(/^.*[/\\]/,"");
   const csvRow=SENTENCE_MAP[fnKey];
@@ -1096,6 +1099,16 @@ replaceBtn.addEventListener("click",async()=>{
   let j;try{j=await cldUpload(f);}catch(err){replaceStatus.textContent="失败："+err.message;return;}
   await sb.from("images").update({url:j.secure_url,storage_path:j.public_id,file_hash:hash,status:"pending",tags:[],updated_at:new Date().toISOString(),uploader:currentUser,replaced_by:currentUser,claimed_by:null,claimed_at:null}).eq("id",currentDocId);
   replaceStatus.textContent="替换成功！";replaceInput.value="";setTimeout(closeModal,1200);
+});
+btnRename.addEventListener("click",async()=>{
+  if(!currentDocId||currentRole!=="uploader")return;
+  const item=allDocs.find(d=>d.id===currentDocId);if(!item)return;
+  const oldName=item.filename||"";
+  const newName=(prompt("修改文件名：",oldName)||"").trim();
+  if(!newName||newName===oldName)return;
+  await sb.from("images").update({filename:newName,updated_at:new Date().toISOString()}).eq("id",currentDocId);
+  item.filename=newName;
+  loadItem(item);
 });
 function fmt(iso){if(!iso)return"";const d=new Date(iso);return(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
 </script>
