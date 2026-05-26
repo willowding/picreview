@@ -230,7 +230,7 @@ main{padding:24px}
     <div id="grid"></div>
     <div id="tableView">
       <table id="statusTable">
-        <thead><tr><th>序号</th><th>关键词</th><th>造句</th><th>状态</th><th>上传人</th></tr></thead>
+        <thead><tr><th>序号<button onclick="copyIds(this)" title="复制所有序号" style="margin-left:6px;padding:1px 5px;font-size:.7rem;border:1px solid #ccc;border-radius:4px;background:#f5f5f5;cursor:pointer;vertical-align:middle;line-height:1.2">复制</button></th><th>关键词</th><th>造句</th><th>状态</th><th>上传人</th></tr></thead>
         <tbody id="statusTbody"></tbody>
       </table>
     </div>
@@ -1870,6 +1870,10 @@ async function loadImages(){
 sb.channel("img-ch").on("postgres_changes",{event:"*",schema:"public",table:"images"},()=>{if(currentProjectId!==null)loadImages();else loadProjects();}).subscribe();
 function itemStatus(item){return(item.claimed_by&&item.status==="rejected")?"claimed":item.status;}
 function statusLabel(s){return{pending:"待审核",approved:"已通过",rejected:"已打回",claimed:"已认领"}[s]||s;}
+function copyIds(btn){
+  const ids=[...document.querySelectorAll("#statusTbody tr")].map(tr=>(tr.querySelector("td")||{}).textContent||"").filter(t=>t.trim()).join(" ");
+  navigator.clipboard.writeText(ids).then(()=>{const orig=btn.textContent;btn.textContent="✓";setTimeout(()=>btn.textContent=orig,1500);});
+}
 function getFiltered(){
   const searchQ=(document.getElementById("imgSearch")||{value:""}).value.trim().toLowerCase();
   let docs=allDocs;
@@ -1944,7 +1948,7 @@ function renderTable(){
     });
     statsBar.textContent="共显示 "+shown+" 张 / "+sortedBooks.length+" 本";
   }else if(currentProjectName&&currentProjectName.includes("英语单词卡片")){
-    thead.innerHTML="<th>序号</th><th>关键词</th><th>中文</th><th>12pt</th><th>18pt</th><th>25px</th><th>状态</th>";
+    thead.innerHTML="<th>序号<button onclick=\"copyIds(this)\" title=\"复制所有序号\" style=\"margin-left:6px;padding:1px 5px;font-size:.7rem;border:1px solid #ccc;border-radius:4px;background:#f5f5f5;cursor:pointer;vertical-align:middle;line-height:1.2\">复制</button></th><th>关键词</th><th>中文</th><th>12pt</th><th>18pt</th><th>25px</th><th>状态</th>";
     const tbody=document.getElementById("statusTbody");tbody.innerHTML="";
     const searchQ=(document.getElementById("imgSearch")||{value:""}).value.trim().toLowerCase();
     const docMap={};
@@ -1966,7 +1970,7 @@ function renderTable(){
     statsBar.textContent="共显示 "+shown+" 条";
     return;
   }else{
-    thead.innerHTML="<th>序号</th><th>关键词</th><th>造句</th><th>状态</th><th>上传人</th>";
+    thead.innerHTML="<th>序号<button onclick=\"copyIds(this)\" title=\"复制所有序号\" style=\"margin-left:6px;padding:1px 5px;font-size:.7rem;border:1px solid #ccc;border-radius:4px;background:#f5f5f5;cursor:pointer;vertical-align:middle;line-height:1.2\">复制</button></th><th>关键词</th><th>造句</th><th>状态</th><th>上传人</th>";
     const tbody=document.getElementById("statusTbody");tbody.innerHTML="";
     const docMap={};
     allDocs.forEach(d=>{const key=(d.filename||"").replace(/\.[^.]+$/,"").replace(/^.*[/\\]/,"");docMap[key]=d;});
