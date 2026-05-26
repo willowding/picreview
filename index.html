@@ -1876,15 +1876,21 @@ function showCopyToast(msg){
   clearTimeout(t._timer);t._timer=setTimeout(()=>t.style.opacity="0",2000);
 }
 function copyIds(){
-  const ids=[...document.querySelectorAll("#statusTbody tr")].map(tr=>(tr.querySelector("td")||{}).textContent||"").filter(t=>t.trim()).join(" ");
+  const ids=[...document.querySelectorAll("#statusTbody tr")]
+    .map(tr=>(tr.querySelector("td")||{}).textContent||"")
+    .map(t=>t.trim()).filter(Boolean).join(" ");
   if(!ids){showCopyToast("没有可复制的序号");return;}
-  if(navigator.clipboard&&location.protocol==="https:"){
-    navigator.clipboard.writeText(ids).then(()=>showCopyToast("已复制 "+ids.split(" ").length+" 个序号"),()=>showCopyToast("复制失败"));
-  }else{
-    const ta=document.createElement("textarea");ta.value=ids;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();
+  const n=ids.split(" ").length;
+  function fallback(){
+    const ta=document.createElement("textarea");
+    ta.value=ids;ta.style.cssText="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
+    document.body.appendChild(ta);ta.focus();ta.select();
     const ok=document.execCommand("copy");document.body.removeChild(ta);
-    showCopyToast(ok?"已复制 "+ids.split(" ").length+" 个序号":"复制失败");
+    showCopyToast(ok?"已复制 "+n+" 个序号":"复制失败，请手动复制");
   }
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(ids).then(()=>showCopyToast("已复制 "+n+" 个序号")).catch(()=>fallback());
+  }else{fallback();}
 }
 function getFiltered(){
   const searchQ=(document.getElementById("imgSearch")||{value:""}).value.trim().toLowerCase();
