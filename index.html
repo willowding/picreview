@@ -121,6 +121,11 @@ main{padding:24px}
 .replaceBtn{width:100%;margin-top:8px;padding:7px;background:#dc3545;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:600}
 .btn-rename{background:none;border:none;cursor:pointer;color:#aaa;font-size:.85rem;padding:0 4px;vertical-align:middle;line-height:1}
 .btn-rename:hover{color:#1a73e8}
+#toastContainer{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{background:#323232;color:#fff;border-radius:12px;padding:13px 18px;font-size:.88rem;box-shadow:0 4px 20px rgba(0,0,0,.35);pointer-events:all;display:flex;align-items:flex-start;gap:10px;max-width:320px;line-height:1.5;animation:toastIn .25s ease}
+@keyframes toastIn{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast-close{background:none;border:none;color:#fff;cursor:pointer;font-size:1.1rem;padding:0;opacity:.6;flex-shrink:0;margin-left:auto}
+.toast-close:hover{opacity:1}
 #emptyHint{text-align:center;color:#aaa;margin-top:60px;font-size:1rem}
 .view-btn{padding:5px 13px;border:2px solid #ccc;background:#fff;border-radius:20px;cursor:pointer;font-size:.85rem;transition:all .15s;font-family:inherit}
 .view-btn.active,.view-btn:hover{border-color:#1a73e8;color:#1a73e8;background:#e8f0fe}
@@ -243,6 +248,7 @@ main{padding:24px}
     <div id="emptyHint" style="display:none">暂无图片</div>
   </div>
 </main>
+<div id="toastContainer"></div>
 <div id="modal">
   <div class="modal-box">
     <div class="modal-img-wrap">
@@ -833,6 +839,9 @@ function applyLogin(){
   document.getElementById("btnReject").style.display=currentRole==="reviewer"?"inline-block":"none";
   document.getElementById("btnDelete").style.display=currentRole==="uploader"?"inline-block":"none";
   refreshBatchBar();
+  if("Notification" in window&&Notification.permission==="default")Notification.requestPermission();
+  subscribeNotifications();
+  checkMissedNotifications();
 }
 enterBtn.addEventListener("click",()=>{const n=nameInput.value.trim();if(!n){nameInput.style.border="2px solid red";return;}if(!selectedRole){document.querySelectorAll(".role-card").forEach(c=>c.style.border="2px solid red");return;}currentUser=n;currentRole=selectedRole;localStorage.setItem("reviewUser",n);localStorage.setItem("reviewRole",selectedRole);applyLogin();});
 nameInput.addEventListener("keydown",e=>{if(e.key==="Enter")enterBtn.click();});
@@ -950,8 +959,49 @@ async function handleFiles(files){
   }
   for(let i=0;i<imgs.length;i+=4)await Promise.allSettled(imgs.slice(i,i+4).map(uploadOne));
   uploadStatus.textContent="完成：新上传 "+inserted+"，同名替换 "+replaced+(skipped>0?"，跳过重复 "+skipped:"");
+  if(inserted+replaced>=3)await recordUploadNotification(inserted+replaced);
   setTimeout(()=>{uploadProgress.style.display="none";progressBar.style.width="0";uploadStatus.textContent="";},4500);
   fileInput.value="";
+}
+
+// 通知系统
+function showToast(html,duration=7000){
+  const c=document.getElementById("toastContainer");
+  const t=document.createElement("div");t.className="toast";
+  t.innerHTML='<span>'+html+'</span><button class="toast-close" title="关闭">×</button>';
+  t.querySelector(".toast-close").addEventListener("click",()=>t.remove());
+  c.appendChild(t);
+  if(duration>0)setTimeout(()=>t&&t.remove(),duration);
+}
+function sendBrowserNotif(title,body){
+  if("Notification" in window&&Notification.permission==="granted"&&document.hidden)
+    new Notification(title,{body});
+}
+async function recordUploadNotification(count){
+  try{
+    await sb.from("notifications").insert({uploader:currentUser,count,project_name:currentProjectName||"未分类",created_at:new Date().toISOString()});
+  }catch(e){console.warn("通知写入失败",e);}
+}
+function subscribeNotifications(){
+  sb.channel("notif-ch").on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications"},payload=>{
+    const n=payload.new;
+    if(n.uploader===currentUser)return;
+    const msg='📤 <strong>'+n.uploader+'</strong> 在「'+n.project_name+'」上传了 <strong>'+n.count+'</strong> 张新图片';
+    showToast(msg);
+    sendBrowserNotif("PicReview 有新图片",n.uploader+" 在「"+n.project_name+"」上传了 "+n.count+" 张");
+  }).subscribe();
+}
+async function checkMissedNotifications(){
+  const lastVisit=localStorage.getItem("lastVisit")||new Date(0).toISOString();
+  localStorage.setItem("lastVisit",new Date().toISOString());
+  try{
+    const{data}=await sb.from("notifications").select("*").gt("created_at",lastVisit).neq("uploader",currentUser).order("created_at",{ascending:false}).limit(20);
+    if(!data||!data.length)return;
+    const total=data.reduce((s,n)=>s+n.count,0);
+    const names=[...new Set(data.map(n=>n.uploader))].join("、");
+    const folders=[...new Set(data.map(n=>n.project_name))].join("、");
+    showToast('👋 你不在时，<strong>'+names+'</strong> 在「'+folders+'」共上传了 <strong>'+total+'</strong> 张新图片',10000);
+  }catch(e){console.warn("通知查询失败",e);}
 }
 
 // 图片列表
