@@ -231,7 +231,7 @@ main{padding:24px}
     <div id="grid"></div>
     <div id="tableView">
       <table id="statusTable">
-        <thead><tr><th>序号<button onclick="copyIds()" title="复制所有序号" style="margin-left:5px;padding:2px 4px;border:none;background:none;cursor:pointer;vertical-align:middle;opacity:.55;line-height:1" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=.55"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></th><th>关键词</th><th>造句</th><th>状态</th><th>上传人</th></tr></thead>
+        <thead><tr><th>序号<button type="button" data-action="copy-ids" title="复制所有序号" style="margin-left:6px;padding:2px 6px;border:1px solid #c8d3e8;background:#eaf2ff;color:#1a73e8;border-radius:4px;cursor:pointer;font-size:.7rem;vertical-align:middle;line-height:1.4">📋 复制</button></th><th>关键词</th><th>造句</th><th>状态</th><th>上传人</th></tr></thead>
         <tbody id="statusTbody"></tbody>
       </table>
     </div>
@@ -1973,7 +1973,7 @@ function renderTable(){
     });
     statsBar.textContent="共显示 "+shown+" 张 / "+sortedBooks.length+" 本";
   }else if(currentProjectName&&currentProjectName.includes("英语单词卡片")){
-    thead.innerHTML="<th>序号<button onclick=\"copyIds()\" title=\"复制所有序号\" style=\"margin-left:5px;padding:2px 4px;border:none;background:none;cursor:pointer;vertical-align:middle;opacity:.55;line-height:1\" onmouseenter=\"this.style.opacity=1\" onmouseleave=\"this.style.opacity=.55\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg></button></th><th>关键词</th><th>中文</th><th>12pt</th><th>18pt</th><th>25px</th><th>状态</th>";
+    thead.innerHTML="<th>序号<button type=\"button\" data-action=\"copy-ids\" title=\"复制所有序号\" style=\"margin-left:6px;padding:2px 6px;border:1px solid #c8d3e8;background:#eaf2ff;color:#1a73e8;border-radius:4px;cursor:pointer;font-size:.7rem;vertical-align:middle;line-height:1.4\">📋 复制</button></th><th>关键词</th><th>中文</th><th>12pt</th><th>18pt</th><th>25px</th><th>状态</th>";
     const tbody=document.getElementById("statusTbody");tbody.innerHTML="";
     const searchQ=(document.getElementById("imgSearch")||{value:""}).value.trim().toLowerCase();
     const docMap={};
@@ -1995,7 +1995,7 @@ function renderTable(){
     statsBar.textContent="共显示 "+shown+" 条";
     return;
   }else{
-    thead.innerHTML="<th>序号<button onclick=\"copyIds()\" title=\"复制所有序号\" style=\"margin-left:5px;padding:2px 4px;border:none;background:none;cursor:pointer;vertical-align:middle;opacity:.55;line-height:1\" onmouseenter=\"this.style.opacity=1\" onmouseleave=\"this.style.opacity=.55\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg></button></th><th>关键词</th><th>造句</th><th>状态</th><th>上传人</th>";
+    thead.innerHTML="<th>序号<button type=\"button\" data-action=\"copy-ids\" title=\"复制所有序号\" style=\"margin-left:6px;padding:2px 6px;border:1px solid #c8d3e8;background:#eaf2ff;color:#1a73e8;border-radius:4px;cursor:pointer;font-size:.7rem;vertical-align:middle;line-height:1.4\">📋 复制</button></th><th>关键词</th><th>造句</th><th>状态</th><th>上传人</th>";
     const tbody=document.getElementById("statusTbody");tbody.innerHTML="";
     const docMap={};
     allDocs.forEach(d=>{const key=(d.filename||"").replace(/\.[^.]+$/,"").replace(/^.*[/\\]/,"");docMap[key]=d;});
@@ -2016,6 +2016,10 @@ function renderTable(){
     statsBar.textContent="共显示 "+shown+" 条";
   }
 }
+document.addEventListener("click",function(e){
+  const t=e.target.closest('[data-action="copy-ids"]');
+  if(t){e.preventDefault();e.stopPropagation();console.log("[copy-ids] 点击事件触发");copyIds();}
+});
 document.querySelectorAll(".view-btn").forEach(btn=>btn.addEventListener("click",()=>setView(btn.dataset.view)));
 document.querySelectorAll(".filter-bar button[data-filter]").forEach(btn=>{btn.addEventListener("click",()=>{document.querySelectorAll(".filter-bar button[data-filter]").forEach(b=>b.classList.remove("active"));btn.classList.add("active");activeFilter=btn.dataset.filter;if(currentView==="table")renderTable();else renderGrid();});});
 document.getElementById("chkSelectMode").addEventListener("change",e=>{selectModeOn=e.target.checked;if(!selectModeOn){selectedIds.clear();document.getElementById("chkSelectAll").checked=!1;}renderGrid();updateBatchCount();});
