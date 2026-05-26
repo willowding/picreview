@@ -42,7 +42,7 @@ main{padding:24px}
 .filter-bar button{padding:6px 18px;border:2px solid #ccc;background:#fff;border-radius:20px;cursor:pointer;font-size:.9rem;transition:all .15s}
 .filter-bar button.active,.filter-bar button:hover{border-color:#1a73e8;color:#1a73e8;background:#e8f0fe}
 #statsBar{margin-left:auto;font-size:.85rem;color:#666}
-#copyToast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;padding:8px 20px;border-radius:20px;font-size:.85rem;pointer-events:none;opacity:0;transition:opacity .25s;z-index:9999}
+#copyToast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:10px 24px;border-radius:20px;font-size:.9rem;pointer-events:none;opacity:0;transition:opacity .25s;z-index:999999;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 #uploadArea{border:2px dashed #1a73e8;border-radius:12px;padding:28px;text-align:center;margin-bottom:28px;background:#fff;cursor:pointer;transition:background .15s}
 #uploadArea:hover{background:#e8f0fe}
 #uploadArea p{color:#555;margin-top:8px;font-size:.9rem}
@@ -1879,18 +1879,25 @@ function copyIds(){
   const ids=[...document.querySelectorAll("#statusTbody tr")]
     .map(tr=>(tr.querySelector("td")||{}).textContent||"")
     .map(t=>t.trim()).filter(Boolean).join(" ");
+  console.log("[copyIds] 抓到序号:",ids?ids.split(" ").length:0,"个");
   if(!ids){showCopyToast("没有可复制的序号");return;}
   const n=ids.split(" ").length;
-  function fallback(){
-    const ta=document.createElement("textarea");
-    ta.value=ids;ta.style.cssText="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
-    document.body.appendChild(ta);ta.focus();ta.select();
-    const ok=document.execCommand("copy");document.body.removeChild(ta);
-    showCopyToast(ok?"已复制 "+n+" 个序号":"复制失败，请手动复制");
+  function execFallback(){
+    try{
+      const ta=document.createElement("textarea");
+      ta.value=ids;ta.style.cssText="position:fixed;top:0;left:0;width:1em;height:1em;padding:0;border:0;opacity:0";
+      document.body.appendChild(ta);ta.focus();ta.select();ta.setSelectionRange(0,ids.length);
+      const ok=document.execCommand("copy");document.body.removeChild(ta);
+      console.log("[copyIds] execCommand 结果:",ok);
+      if(ok){showCopyToast("已复制 "+n+" 个序号");}
+      else{window.prompt("自动复制失败，请按 Ctrl+C 手动复制：",ids);}
+    }catch(e){console.error("[copyIds] fallback错误:",e);window.prompt("复制失败，请手动复制：",ids);}
   }
-  if(navigator.clipboard&&window.isSecureContext){
-    navigator.clipboard.writeText(ids).then(()=>showCopyToast("已复制 "+n+" 个序号")).catch(()=>fallback());
-  }else{fallback();}
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(ids)
+      .then(()=>{console.log("[copyIds] clipboard API 成功");showCopyToast("已复制 "+n+" 个序号");})
+      .catch(err=>{console.warn("[copyIds] clipboard API 失败，使用 fallback:",err);execFallback();});
+  }else{execFallback();}
 }
 function getFiltered(){
   const searchQ=(document.getElementById("imgSearch")||{value:""}).value.trim().toLowerCase();
