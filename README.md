@@ -18,7 +18,7 @@ A lightweight image review tool for small teams who are tired of chasing feedbac
 - **Bulk actions** — multi-select to batch download or delete
 - **Realtime sync** — all changes propagate instantly to anyone with the page open
 - **Upload notifications** — automatic toast when a teammate uploads a batch
-- **Smart matching** — English word card images auto-match by 4-digit ID prefix or keyword fallback (`weekend_3x.png` finds the `weekend` row)
+- **Smart matching** — English word card images auto-match by 4-digit ID prefix or keyword fallback
 - **Copy IDs** — one click to copy all visible row IDs (space-separated) to clipboard
 
 ## Tech Stack
@@ -38,3 +38,7 @@ A lightweight image review tool for small teams who are tired of chasing feedbac
 ## Deployment
 
 The app is served directly from `main` branch root via GitHub Pages. Any change pushed to `index.html` goes live in 1–2 minutes after a hard refresh.
+
+## Acknowledgements
+
+This is my very first complete project from idea to deployment. Huge thanks to Claude :)
