@@ -1632,6 +1632,18 @@ const WORD_MAP={
   "8090":{kw:"dream",zh:"梦",i12:null,i18:null,i25:"8090dream.png"},
 };
 const sb = createClient("https://ptxkeywyujftzusjvrrh.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0eGtleXd5dWpmdHp1c2p2cnJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NTY3NTEsImV4cCI6MjA5NDEzMjc1MX0.Y5AUQR4emWXbBcW_NB_yGb2FrrjBgIA5DK-rcyaISqg");
+async function fetchAllRows(buildQuery){
+  const pageSize=1000;let from=0,all=[];
+  while(true){
+    const{data,error}=await buildQuery().range(from,from+pageSize-1);
+    if(error)throw error;
+    if(!data||!data.length)break;
+    all=all.concat(data);
+    if(data.length<pageSize)break;
+    from+=pageSize;
+  }
+  return all;
+}
 const CLD_NAME="deretv9xp",CLD_PRESET="picreview";
 async function cldUpload(file){
   const fd=new FormData();fd.append("file",file);fd.append("upload_preset",CLD_PRESET);
@@ -1690,7 +1702,7 @@ async function loadProjects(){
   const{data:projects}=await sb.from("projects").select("*").order("created_at",{ascending:false});
   const counts={};
   const pending={};
-  const{data:imgs}=await sb.from("images").select("id,project_id,status");
+  const imgs=await fetchAllRows(()=>sb.from("images").select("id,project_id,status"));
   (imgs||[]).forEach(img=>{
     const k=img.project_id||"__uncat__";
     counts[k]=(counts[k]||0)+1;
@@ -1942,10 +1954,14 @@ function sortImages(docs){
   return[...docs].sort((a,b)=>(b.filename||"").localeCompare(a.filename||""));
 }
 async function loadImages(){
-  let q=sb.from("images").select("*");
-  if(currentProjectId==="__uncat__")q=q.is("project_id",null);
-  else q=q.eq("project_id",currentProjectId);
-  const{data}=await q;allDocs=sortImages(data||[]);renderGrid();
+  let q=()=>{
+    let b=sb.from("images").select("*");
+    if(currentProjectId==="__uncat__")b=b.is("project_id",null);
+    else b=b.eq("project_id",currentProjectId);
+    return b;
+  };
+  const data=await fetchAllRows(q);
+  allDocs=sortImages(data||[]);renderGrid();
 }
 sb.channel("img-ch").on("postgres_changes",{event:"*",schema:"public",table:"images"},()=>{if(currentProjectId!==null)loadImages();else loadProjects();}).subscribe();
 function itemStatus(item){return(item.claimed_by&&item.status==="rejected")?"claimed":item.status;}
