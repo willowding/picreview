@@ -57,6 +57,7 @@ main{padding:24px}
 .card-wrap.select-mode .card-sel{display:block}
 .card-sel input{width:18px;height:18px;cursor:pointer}
 .claim-pin{position:absolute;top:8px;left:8px;z-index:7;color:#fff;padding:4px 10px;border-radius:10px;font-size:.72rem;font-weight:800;max-width:calc(100% - 48px);text-align:left;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.claim-pin em,.modal-claim-pin em{font-style:italic;font-weight:800}
 .card img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .batch-bar{display:none;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px 14px;background:#fff;border-radius:12px;border:1px solid #dee2e6}
 .batch-bar.visible{display:flex}
@@ -1984,7 +1985,13 @@ async function loadImages(){
 sb.channel("img-ch").on("postgres_changes",{event:"*",schema:"public",table:"images"},()=>{if(currentProjectId!==null)loadImages();else loadProjects();}).subscribe();
 function itemStatus(item){return(item.claimed_by&&item.status==="rejected")?"claimed":item.status;}
 function statusLabel(s){return{pending:"待审核",approved:"已通过",rejected:"已打回",claimed:"已认领"}[s]||s;}
-const CLAIM_COLORS=["#ff9800","#f9a825","#43a047","#00acc1","#8e24aa"];
+const CLAIM_COLORS=[
+  {bg:"#FF4500",fg:"#fff"},
+  {bg:"#FFD700",fg:"#fff"},
+  {bg:"#2D5D42",fg:"#fff"},
+  {bg:"#008B8B",fg:"#fff"},
+  {bg:"#800080",fg:"#fff"}
+];
 let claimColorMap={};
 function buildClaimColorMap(){
   const first={};
@@ -1995,9 +2002,15 @@ function buildClaimColorMap(){
   });
   const names=Object.keys(first).sort((a,b)=>first[a].localeCompare(first[b])||a.localeCompare(b,"zh"));
   claimColorMap={};
-  names.forEach((n,i)=>{claimColorMap[n]=CLAIM_COLORS[i%CLAIM_COLORS.length];});
+  names.forEach((n,i)=>{claimColorMap[n]=i%CLAIM_COLORS.length;});
 }
-function claimColor(name){return claimColorMap[name]||CLAIM_COLORS[0];}
+function applyClaimPin(el,name){
+  if(!name)return;
+  const c=CLAIM_COLORS[claimColorMap[name]??0];
+  el.style.background=c.bg;
+  el.style.color=c.fg;
+  el.innerHTML='我来改！ <em>'+name+'</em>';
+}
 function showCopyToast(msg){
   const t=document.getElementById("copyToast");t.textContent=msg;t.style.opacity="1";
   clearTimeout(t._timer);t._timer=setTimeout(()=>t.style.opacity="0",2000);
@@ -2045,7 +2058,7 @@ function renderGrid(){
     const wrap=document.createElement("div");
     wrap.className="card-wrap"+(selectModeOn?" select-mode":"")+(selectedIds.has(item.id)?" selected":"");
     if(item.claimed_by){
-      const pin=document.createElement("div");pin.className="claim-pin";pin.textContent="我来改！ "+item.claimed_by;pin.style.background=claimColor(item.claimed_by);wrap.appendChild(pin);
+      const pin=document.createElement("div");pin.className="claim-pin";applyClaimPin(pin,item.claimed_by);wrap.appendChild(pin);
     }
     const sel=document.createElement("label");sel.className="card-sel";
     const cb=document.createElement("input");cb.type="checkbox";cb.checked=selectedIds.has(item.id);
@@ -2276,8 +2289,8 @@ function loadItem(item){
   modalUploader.textContent="上传人："+(item.replaced_by||item.uploader||"—")+"  |  状态："+statusLabel(itemStatus(item))+(item.claimed_by?"  |  认领："+item.claimed_by:"");
   commentInput.value="";replaceStatus.textContent="";commentInput.style.border="";
   document.querySelectorAll(".tag").forEach(t=>t.classList.remove("selected"));
-  if(item.claimed_by){modalClaimPin.textContent="我来改！ "+item.claimed_by;modalClaimPin.style.background=claimColor(item.claimed_by);modalClaimPin.classList.add("show");}
-  else{modalClaimPin.textContent="";modalClaimPin.style.background="";modalClaimPin.classList.remove("show");}
+  if(item.claimed_by){applyClaimPin(modalClaimPin,item.claimed_by);modalClaimPin.classList.add("show");}
+  else{modalClaimPin.innerHTML="";modalClaimPin.style.background="";modalClaimPin.style.color="";modalClaimPin.classList.remove("show");}
   if(currentRole==="reviewer"&&item.status==="rejected"){
     btnClaim.textContent=item.claimed_by?"抢夺认领":"我来改！";
     btnClaim.style.display="inline-block";
