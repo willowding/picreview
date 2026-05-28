@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>PicReview</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:#f0f2f5;color:#222;min-height:100vh}
@@ -196,7 +197,7 @@ main{padding:24px}
       <span class="project-title" id="projectTitle"></span>
       <button class="btn-import-table" id="btnImportTable" style="margin-left:auto" title="上传 CSV 表格，前三列依次为序号、关键词、造句">📥 导入表格</button>
       <button class="btn-import-table secondary" id="btnClearTable" style="display:none" title="清空当前项目的表格">清空</button>
-      <input type="file" id="tableFileInput" accept=".csv,.txt" style="display:none"/>
+      <input type="file" id="tableFileInput" accept=".csv,.txt,.xlsx,.xls" style="display:none"/>
     </div>
     <div class="projects-search" id="imgSearchBar">
       <input id="imgSearch" type="text" placeholder="搜索文件名…"/>
@@ -1749,28 +1750,45 @@ function parseCsv(text){
   if(cell.length||row.length){row.push(cell);rows.push(row);}
   return rows;
 }
+async function readSheetRows(file){
+  const name=(file.name||"").toLowerCase();
+  if(name.endsWith(".xlsx")||name.endsWith(".xls")){
+    if(typeof XLSX==="undefined"){showCopyToast("xlsx 解析库未加载，请检查网络");return null;}
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:"array"});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws,{header:1,defval:""}).map(r=>r.map(c=>(c==null?"":String(c))));
+  }
+  const text=await file.text();
+  return parseCsv(text);
+}
 async function importTableCsv(file){
   if(!currentProjectId||currentProjectId==="__uncat__"){showCopyToast("未分类项目不支持导入表格");return;}
-  const text=await file.text();
-  const rows=parseCsv(text).filter(r=>r.some(c=>(c||"").trim()));
-  if(!rows.length){showCopyToast("CSV 为空");return;}
-  let start=0;
+  const rawRows=await readSheetRows(file);
+  if(!rawRows)return;
+  const rows=rawRows.filter(r=>r.some(c=>(c||"").trim()));
+  if(!rows.length){showCopyToast("表格为空");return;}
   const first=rows[0].map(c=>(c||"").trim());
-  if(first.some(c=>/序号|关键词|造句|key|sentence|id/i.test(c)))start=1;
-  const map={};
+  const hasHeader=first.some(c=>/序号|关键词|造句|中文|输出文件名|单词|key|sentence|id|word|名|号/i.test(c));
+  const maxCols=Math.max(...rows.map(r=>r.length));
+  let columns;
+  if(hasHeader){columns=first.slice(1).map((c,i)=>c||"列"+(i+1));}
+  else{columns=[];for(let i=1;i<maxCols;i++)columns.push("列"+i);}
+  const data={};
+  const start=hasHeader?1:0;
   for(let i=start;i<rows.length;i++){
     const r=rows[i].map(c=>(c||"").trim());
     const k=r[0];if(!k)continue;
-    map[k]={kw:r[1]||"",s:r[2]||""};
+    data[k]=r.slice(1);
   }
-  const count=Object.keys(map).length;
+  const count=Object.keys(data).length;
   if(!count){showCopyToast("没有解析到有效行");return;}
-  const meta={...(currentProjectMeta||{}),table:map,table_uploaded_by:currentUser,table_uploaded_at:new Date().toISOString()};
+  const meta={...(currentProjectMeta||{}),table:{columns,rows:data},table_uploaded_by:currentUser,table_uploaded_at:new Date().toISOString()};
   const{error}=await sb.from("projects").update({metadata:meta}).eq("id",currentProjectId);
   if(error){showCopyToast("保存失败："+error.message);return;}
   currentProjectMeta=meta;
   document.getElementById("btnClearTable").style.display="";
-  showCopyToast("已导入 "+count+" 行");
+  showCopyToast("已导入 "+count+" 行 · "+columns.length+" 列");
   if(currentView==="table")renderTable();
 }
 async function clearProjectTable(){
@@ -1938,6 +1956,7 @@ function showCopyToast(msg){
 }
 function copyIds(){
   const ids=[...document.querySelectorAll("#statusTbody tr")]
+    .filter(tr=>!tr.classList.contains("book-header"))
     .map(tr=>(tr.querySelector("td")||{}).textContent||"")
     .map(t=>t.trim()).filter(Boolean).join(" ");
   console.log("[copyIds] 抓到序号:",ids?ids.split(" ").length:0,"个");
@@ -2003,12 +2022,57 @@ function setView(v){
 }
 function renderTable(){
   const isEng=currentProjectName&&currentProjectName.includes("英语绘本");
+  const customTable=(currentProjectMeta&&currentProjectMeta.table&&currentProjectMeta.table.columns&&currentProjectMeta.table.rows)?currentProjectMeta.table:null;
   const thead=document.querySelector("#statusTable thead tr");
   const stColors={approved:{bg:"#d1e7dd",fg:"#0f5132"},rejected:{bg:"#f8d7da",fg:"#842029"},claimed:{bg:"#fff3e0",fg:"#e65100"},pending:{bg:"#fff3cd",fg:"#856404"},none:{bg:"#f0f2f5",fg:"#aaa"}};
-  if(isEng){
-    thead.innerHTML="<th>分镜</th><th>文件名</th><th>上传人</th><th>状态</th>";
+  const copyBtn="<button type=\"button\" data-action=\"copy-ids\" title=\"复制所有序号\" style=\"margin-left:6px;padding:2px 6px;border:1px solid #c8d3e8;background:#eaf2ff;color:#1a73e8;border-radius:4px;cursor:pointer;font-size:.7rem;vertical-align:middle;line-height:1.4\">📋 复制</button>";
+  if(customTable&&!isEng){
+    const rowsObj=customTable.rows;
+    const hasDetail=Object.values(rowsObj).some(r=>r.some(v=>(v||"").trim()));
+    thead.innerHTML="<th>文件名"+copyBtn+"</th>"+(hasDetail?"<th>详情</th>":"")+"<th>上传方</th><th>状态</th>";
     const tbody=document.getElementById("statusTbody");tbody.innerHTML="";
     const searchQ=(document.getElementById("imgSearch")||{value:""}).value.trim().toLowerCase();
+    const docMap={};
+    const kwToId={};
+    Object.keys(rowsObj).forEach(id=>{const kw=(rowsObj[id][0]||"").toLowerCase();if(kw&&!kwToId[kw])kwToId[kw]=id;});
+    allDocs.forEach(d=>{
+      const fn=(d.filename||"").replace(/\.[^.]+$/,"").replace(/^.*[/\\]/,"");
+      let id=null;
+      if(rowsObj[fn])id=fn;
+      else{
+        const m=fn.match(/^(\d+)/);
+        if(m&&rowsObj[m[1]])id=m[1];
+        else{
+          const stripped=fn.replace(/^\d+/,"");
+          const kw=stripped.split(/[_\-\s]/)[0].toLowerCase();
+          if(kwToId[kw])id=kwToId[kw];
+        }
+      }
+      if(id){if(!docMap[id])docMap[id]=[];docMap[id].push(d);}
+    });
+    let shown=0;
+    Object.keys(rowsObj).sort().forEach(id=>{
+      const row=rowsObj[id];
+      const docs=docMap[id]||[];
+      const ist=docs.length===0?"none":docs.every(d=>itemStatus(d)==="approved")?"approved":docs.some(d=>itemStatus(d)==="rejected"&&!d.claimed_by)?"rejected":docs.some(d=>itemStatus(d)==="claimed")?"claimed":docs.some(d=>d.status==="pending")?"pending":"none";
+      if(activeFilter!=="all"&&activeFilter!==ist)return;
+      if(searchQ&&!id.toLowerCase().includes(searchQ)&&!row.some(v=>(v||"").toLowerCase().includes(searchQ)))return;
+      const c=stColors[ist]||stColors.none;
+      const stText=ist==="none"?"未上传":statusLabel(ist);
+      const uploader=docs.length?(docs[0].replaced_by||docs[0].uploader||""):"";
+      const detailStr=row.filter(v=>(v||"").toString().trim()).join(" ｜ ");
+      const detailCell=hasDetail?"<td style=\"font-size:.8rem;color:#555\">"+detailStr+"</td>":"";
+      const tr=document.createElement("tr");
+      tr.innerHTML="<td style=\"font-weight:600\">"+id+"</td>"+detailCell+"<td style=\"font-size:.75rem;color:#888\">"+uploader+"</td><td><span class=\"st-badge\" style=\"background:"+c.bg+";color:"+c.fg+"\">"+stText+"</span></td>";
+      if(docs.length){tr.style.cursor="pointer";tr.addEventListener("click",()=>openModal(docs[0],docs));}
+      tbody.appendChild(tr);shown++;
+    });
+    statsBar.textContent="共显示 "+shown+" 条";
+    return;
+  }
+  if(isEng){
+    thead.innerHTML="<th>文件名"+copyBtn+"</th><th>上传方</th><th>状态</th>";
+    const tbody=document.getElementById("statusTbody");tbody.innerHTML="";
     const books={};
     getFiltered().forEach(item=>{
       const p=parseImgName(item.filename);
@@ -2021,20 +2085,19 @@ function renderTable(){
     sortedBooks.forEach(book=>{
       const frames=books[book].sort((a,b)=>a.scene-b.scene);
       const hdr=document.createElement("tr");hdr.className="book-header";
-      hdr.innerHTML='<td colspan="4">📖 '+book+' <span style="opacity:.65;font-weight:400;font-size:.8rem">('+frames.length+' 张)</span></td>';
+      hdr.innerHTML='<td colspan="3">📖 '+book+' <span style="opacity:.65;font-weight:400;font-size:.8rem">('+frames.length+' 张)</span></td>';
       tbody.appendChild(hdr);
-      frames.forEach(({item,scene})=>{
+      frames.forEach(({item})=>{
         const ist=itemStatus(item);const c=stColors[ist]||stColors.none;
-        const sceneLabel=scene===-1?"封面":scene===99999?"封底":"("+scene+")";
         const tr=document.createElement("tr");
-        tr.innerHTML='<td style="color:#888;font-size:.8rem;white-space:nowrap">'+sceneLabel+'</td><td style="font-size:.78rem;color:#555;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(item.filename||"")+'">'+(item.filename||"")+'</td><td style="font-size:.75rem;color:#888">'+(item.replaced_by||item.uploader||"")+'</td><td><span class="st-badge" style="background:'+c.bg+';color:'+c.fg+'">'+statusLabel(ist)+'</span></td>';
+        tr.innerHTML='<td style="font-size:.78rem;color:#444;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(item.filename||"")+'">'+(item.filename||"")+'</td><td style="font-size:.75rem;color:#888">'+(item.replaced_by||item.uploader||"")+'</td><td><span class="st-badge" style="background:'+c.bg+';color:'+c.fg+'">'+statusLabel(ist)+'</span></td>';
         tr.style.cursor="pointer";tr.addEventListener("click",()=>openModal(item,frames.map(f=>f.item)));
         tbody.appendChild(tr);shown++;
       });
     });
     statsBar.textContent="共显示 "+shown+" 张 / "+sortedBooks.length+" 本";
   }else if(currentProjectName&&currentProjectName.includes("英语单词卡片")){
-    thead.innerHTML="<th>序号<button type=\"button\" data-action=\"copy-ids\" title=\"复制所有序号\" style=\"margin-left:6px;padding:2px 6px;border:1px solid #c8d3e8;background:#eaf2ff;color:#1a73e8;border-radius:4px;cursor:pointer;font-size:.7rem;vertical-align:middle;line-height:1.4\">📋 复制</button></th><th>关键词</th><th>中文</th><th>12pt</th><th>18pt</th><th>25px</th><th>状态</th>";
+    thead.innerHTML="<th>序号"+copyBtn+"</th><th>关键词</th><th>中文</th><th>12pt</th><th>18pt</th><th>25px</th><th>状态</th>";
     const tbody=document.getElementById("statusTbody");tbody.innerHTML="";
     const searchQ=(document.getElementById("imgSearch")||{value:""}).value.trim().toLowerCase();
     const docMap={};
@@ -2129,7 +2192,11 @@ function loadItem(item){
   btnRename.style.display=currentRole==="uploader"?"inline":"none";
   const modalSentence=document.getElementById("modalSentence");
   const fnKey=(item.filename||"").replace(/\.[^.]+$/,"").replace(/^.*[/\\]/,"");
-  const csvRow=(currentProjectMeta&&currentProjectMeta.table&&currentProjectMeta.table[fnKey])||SENTENCE_MAP[fnKey];
+  let csvRow=SENTENCE_MAP[fnKey];
+  if(currentProjectMeta&&currentProjectMeta.table&&currentProjectMeta.table.rows){
+    const r=currentProjectMeta.table.rows[fnKey];
+    if(r)csvRow={kw:r[0]||"",s:r[1]||""};
+  }
   if(csvRow){modalSentence.textContent="关键词："+csvRow.kw+"　｜　造句："+csvRow.s;modalSentence.style.display="block";}
   else{modalSentence.style.display="none";}
   modalUploader.textContent="上传人："+(item.replaced_by||item.uploader||"—")+"  |  状态："+statusLabel(itemStatus(item))+(item.claimed_by?"  |  认领："+item.claimed_by:"");
