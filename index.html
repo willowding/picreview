@@ -56,7 +56,7 @@ main{padding:24px}
 .card-sel{display:none;position:absolute;top:8px;right:8px;z-index:8}
 .card-wrap.select-mode .card-sel{display:block}
 .card-sel input{width:18px;height:18px;cursor:pointer}
-.claim-pin{position:absolute;top:8px;left:8px;z-index:7;background:#ff9800;color:#fff;padding:4px 10px;border-radius:10px;font-size:.72rem;font-weight:800;max-width:calc(100% - 48px);text-align:left;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.claim-pin{position:absolute;top:8px;left:8px;z-index:7;color:#fff;padding:4px 10px;border-radius:10px;font-size:.72rem;font-weight:800;max-width:calc(100% - 48px);text-align:left;box-shadow:0 2px 6px rgba(0,0,0,.25)}
 .card img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .batch-bar{display:none;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px 14px;background:#fff;border-radius:12px;border:1px solid #dee2e6}
 .batch-bar.visible{display:flex}
@@ -65,7 +65,7 @@ main{padding:24px}
 .batch-bar button.primary{background:#1a73e8;color:#fff}
 .batch-bar button.danger{background:#dc3545;color:#fff}
 #batchCount{margin-left:auto;font-size:.85rem;color:#555}
-.modal-claim-pin{position:absolute;top:10px;left:10px;z-index:15;background:#ff9800;color:#fff;padding:5px 12px;border-radius:10px;font-size:.8rem;font-weight:800;display:none;max-width:85%;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.modal-claim-pin{position:absolute;top:10px;left:10px;z-index:15;color:#fff;padding:5px 12px;border-radius:10px;font-size:.8rem;font-weight:800;display:none;max-width:85%;box-shadow:0 2px 8px rgba(0,0,0,.35)}
 .modal-claim-pin.show{display:block}
 .btn-claim{padding:8px 18px;background:#ff9800;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.88rem;font-weight:700}
 .btn-claim:hover{background:#f57c00}
@@ -1984,6 +1984,20 @@ async function loadImages(){
 sb.channel("img-ch").on("postgres_changes",{event:"*",schema:"public",table:"images"},()=>{if(currentProjectId!==null)loadImages();else loadProjects();}).subscribe();
 function itemStatus(item){return(item.claimed_by&&item.status==="rejected")?"claimed":item.status;}
 function statusLabel(s){return{pending:"待审核",approved:"已通过",rejected:"已打回",claimed:"已认领"}[s]||s;}
+const CLAIM_COLORS=["#ff9800","#f9a825","#43a047","#00acc1","#8e24aa"];
+let claimColorMap={};
+function buildClaimColorMap(){
+  const first={};
+  allDocs.forEach(d=>{
+    if(!d.claimed_by)return;
+    const t=d.claimed_at||d.updated_at||"";
+    if(!first[d.claimed_by]||t<first[d.claimed_by])first[d.claimed_by]=t;
+  });
+  const names=Object.keys(first).sort((a,b)=>first[a].localeCompare(first[b])||a.localeCompare(b,"zh"));
+  claimColorMap={};
+  names.forEach((n,i)=>{claimColorMap[n]=CLAIM_COLORS[i%CLAIM_COLORS.length];});
+}
+function claimColor(name){return claimColorMap[name]||CLAIM_COLORS[0];}
 function showCopyToast(msg){
   const t=document.getElementById("copyToast");t.textContent=msg;t.style.opacity="1";
   clearTimeout(t._timer);t._timer=setTimeout(()=>t.style.opacity="0",2000);
@@ -2023,6 +2037,7 @@ function getFiltered(){
   return docs;
 }
 function renderGrid(){
+  buildClaimColorMap();
   const filtered=getFiltered();grid.innerHTML="";emptyHint.style.display=filtered.length===0?"block":"none";
   const p=allDocs.filter(d=>d.status==="pending").length,cl=allDocs.filter(d=>d.claimed_by&&d.status==="rejected").length,a=allDocs.filter(d=>d.status==="approved").length,r=allDocs.filter(d=>d.status==="rejected"&&!d.claimed_by).length;
   statsBar.textContent="共 "+allDocs.length+" 张 | 待审 "+p+" | 认领 "+cl+" | 通过 "+a+" | 打回 "+r;
@@ -2030,7 +2045,7 @@ function renderGrid(){
     const wrap=document.createElement("div");
     wrap.className="card-wrap"+(selectModeOn?" select-mode":"")+(selectedIds.has(item.id)?" selected":"");
     if(item.claimed_by){
-      const pin=document.createElement("div");pin.className="claim-pin";pin.textContent="我来改！ "+item.claimed_by;wrap.appendChild(pin);
+      const pin=document.createElement("div");pin.className="claim-pin";pin.textContent="我来改！ "+item.claimed_by;pin.style.background=claimColor(item.claimed_by);wrap.appendChild(pin);
     }
     const sel=document.createElement("label");sel.className="card-sel";
     const cb=document.createElement("input");cb.type="checkbox";cb.checked=selectedIds.has(item.id);
@@ -2227,22 +2242,42 @@ const modal=document.getElementById("modal"),modalImg=document.getElementById("m
 let selectedTags=[],currentDocId=null,currentList=[],currentIndex=-1;
 function openModal(item,list){currentList=list||getFiltered();currentIndex=currentList.findIndex(d=>d.id===item.id);loadItem(item);modal.classList.add("open");}
 function loadItem(item){
+  buildClaimColorMap();
   currentDocId=item.id;selectedTags=[];modalImg.src=imgMid(item.url);modalFilename.textContent=item.filename||"图片";
   btnRename.style.display=currentRole==="uploader"?"inline":"none";
   const modalSentence=document.getElementById("modalSentence");
   const fnKey=(item.filename||"").replace(/\.[^.]+$/,"").replace(/^.*[/\\]/,"");
-  let csvRow=SENTENCE_MAP[fnKey];
-  if(currentProjectMeta&&currentProjectMeta.table&&currentProjectMeta.table.rows){
-    const r=currentProjectMeta.table.rows[fnKey];
-    if(r)csvRow={kw:r[0]||"",s:r[1]||""};
+  const isWordCard=currentProjectName&&currentProjectName.includes("英语单词卡片");
+  if(isWordCard){
+    let kw="",zh="";
+    const rows=currentProjectMeta?.table?.rows;
+    if(rows){
+      const norm=s=>(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+      let row=rows[fnKey];
+      if(!row)row=Object.entries(rows).find(([id])=>norm(id)===norm(fnKey))?.[1];
+      if(!row){const m=fnKey.match(/^(\d+)/);if(m){row=rows[m[1]]||Object.entries(rows).find(([id])=>id.startsWith(m[1]))?.[1];}}
+      if(row)kw=row[0]||"";
+    }
+    const id4=(fnKey.match(/^(\d{4})/)||[])[1];
+    if(id4&&WORD_MAP[id4]){if(!kw)kw=WORD_MAP[id4].kw;zh=WORD_MAP[id4].zh||"";}
+    if(kw||zh){
+      modalSentence.textContent=(kw?"关键词："+kw:"")+(kw&&zh?"　｜　":"")+(zh?"中文："+zh:"");
+      modalSentence.style.display="block";
+    }else{modalSentence.style.display="none";}
+  }else{
+    let csvRow=SENTENCE_MAP[fnKey];
+    if(currentProjectMeta&&currentProjectMeta.table&&currentProjectMeta.table.rows){
+      const r=currentProjectMeta.table.rows[fnKey];
+      if(r)csvRow={kw:r[0]||"",s:r[1]||""};
+    }
+    if(csvRow){modalSentence.textContent="关键词："+csvRow.kw+"　｜　造句："+csvRow.s;modalSentence.style.display="block";}
+    else{modalSentence.style.display="none";}
   }
-  if(csvRow){modalSentence.textContent="关键词："+csvRow.kw+"　｜　造句："+csvRow.s;modalSentence.style.display="block";}
-  else{modalSentence.style.display="none";}
   modalUploader.textContent="上传人："+(item.replaced_by||item.uploader||"—")+"  |  状态："+statusLabel(itemStatus(item))+(item.claimed_by?"  |  认领："+item.claimed_by:"");
   commentInput.value="";replaceStatus.textContent="";commentInput.style.border="";
   document.querySelectorAll(".tag").forEach(t=>t.classList.remove("selected"));
-  if(item.claimed_by){modalClaimPin.textContent="我来改！ "+item.claimed_by;modalClaimPin.classList.add("show");}
-  else{modalClaimPin.textContent="";modalClaimPin.classList.remove("show");}
+  if(item.claimed_by){modalClaimPin.textContent="我来改！ "+item.claimed_by;modalClaimPin.style.background=claimColor(item.claimed_by);modalClaimPin.classList.add("show");}
+  else{modalClaimPin.textContent="";modalClaimPin.style.background="";modalClaimPin.classList.remove("show");}
   if(currentRole==="reviewer"&&item.status==="rejected"){
     btnClaim.textContent=item.claimed_by?"抢夺认领":"我来改！";
     btnClaim.style.display="inline-block";
