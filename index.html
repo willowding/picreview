@@ -2033,19 +2033,24 @@ function renderTable(){
     const tbody=document.getElementById("statusTbody");tbody.innerHTML="";
     const searchQ=(document.getElementById("imgSearch")||{value:""}).value.trim().toLowerCase();
     const docMap={};
-    const kwToId={};
-    Object.keys(rowsObj).forEach(id=>{const kw=(rowsObj[id][0]||"").toLowerCase();if(kw&&!kwToId[kw])kwToId[kw]=id;});
+    const norm=s=>(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+    const normIdToId={},normKwToId={};
+    Object.keys(rowsObj).forEach(id=>{
+      const ni=norm(id);if(ni&&!normIdToId[ni])normIdToId[ni]=id;
+      const nk=norm(rowsObj[id][0]);if(nk&&!normKwToId[nk])normKwToId[nk]=id;
+    });
     allDocs.forEach(d=>{
       const fn=(d.filename||"").replace(/\.[^.]+$/,"").replace(/^.*[/\\]/,"");
       let id=null;
       if(rowsObj[fn])id=fn;
+      else if(normIdToId[norm(fn)])id=normIdToId[norm(fn)];
       else{
         const m=fn.match(/^(\d+)/);
         if(m&&rowsObj[m[1]])id=m[1];
         else{
           const stripped=fn.replace(/^\d+/,"");
-          const kw=stripped.split(/[_\-\s]/)[0].toLowerCase();
-          if(kwToId[kw])id=kwToId[kw];
+          const kwNorm=norm(stripped.split(/[_\-\s]/)[0]);
+          if(normKwToId[kwNorm])id=normKwToId[kwNorm];
         }
       }
       if(id){if(!docMap[id])docMap[id]=[];docMap[id].push(d);}
