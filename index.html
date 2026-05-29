@@ -220,8 +220,8 @@ main{padding:24px}
       <button class="btn-new-folder" id="btnNewFolder">+ 新建项目</button>
     </div>
     <div class="proj-filter-bar">
-      <button class="active" data-pf="active">进行中</button>
-      <button data-pf="all">全部</button>
+      <button class="active" data-pf="all">全部</button>
+      <button data-pf="active">进行中</button>
       <button data-pf="completed">已完结</button>
     </div>
     <div class="projects-grid" id="projectsGrid"></div>
@@ -1234,7 +1234,7 @@ applyLogin();
 let currentProjectId=null,currentProjectName="";
 const projectsView=document.getElementById("projectsView"),imagesView=document.getElementById("imagesView"),projectsGrid=document.getElementById("projectsGrid"),projectTitle=document.getElementById("projectTitle"),headerTitle=document.getElementById("headerTitle");
 
-let _projFilter="active";
+let _projFilter="all";
 document.querySelectorAll(".proj-filter-bar button").forEach(btn=>{
   btn.addEventListener("click",()=>{
     _projFilter=btn.dataset.pf;
