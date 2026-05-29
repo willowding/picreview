@@ -1293,36 +1293,37 @@ function _impEmptyRatio(rows,colIdx){
 }
 
 function _impResolveCell(cell){
-  // 有值直接返回
   if(cell==null)return"";
-  if(typeof cell!=="object")return String(cell);
-  // 有缓存值 v
+  // 有缓存值直接用
   if(cell.v!=null&&cell.v!=="")return String(cell.v);
   // 跨 Sheet 公式引用：='SheetName'!B2 或 =SheetName!B2
   if(cell.f){
-    const m=cell.f.match(/^='?([^'!]+)'?!([A-Z]+\d+)$/i);
-    if(m){
-      const refSheet=m[1];const refAddr=m[2];
-      const refWs=_impWb&&_impWb.Sheets[refSheet];
-      if(refWs&&refWs[refAddr]!=null){
-        const rv=refWs[refAddr].v;
-        if(rv!=null)return String(rv);
-      }
+    const m=cell.f.match(/^='?([^'!\r\n]+)'?!([A-Z]+\d+)$/i);
+    if(m&&_impWb){
+      const refWs=_impWb.Sheets[m[1]];
+      if(refWs){const rc=refWs[m[2]];if(rc&&rc.v!=null)return String(rc.v);}
     }
   }
-  return cell.v!=null?String(cell.v):"";
+  return"";
 }
 
 function _impSheetRows(sheetName){
   if(!_impWb)return[];
   const ws=_impWb.Sheets[sheetName];
-  // 用 raw 模式取到完整 cell 对象，再手动解析（处理跨 Sheet 公式）
-  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
-  return raw.map(r=>r.map(c=>{
-    if(c==null)return"";
-    if(typeof c==="object"&&!Array.isArray(c))return _impResolveCell(c);
-    return String(c);
-  }));
+  if(!ws)return[];
+  const ref=ws["!ref"];
+  if(!ref)return[];
+  const range=XLSX.utils.decode_range(ref);
+  const rows=[];
+  for(let R=range.s.r;R<=range.e.r;R++){
+    const row=[];
+    for(let C=range.s.c;C<=range.e.c;C++){
+      const addr=XLSX.utils.encode_cell({r:R,c:C});
+      row.push(_impResolveCell(ws[addr]||null));
+    }
+    rows.push(row);
+  }
+  return rows;
 }
 
 function _impBuildUI(){
