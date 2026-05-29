@@ -33,6 +33,15 @@ main{padding:24px}
 .folder-card .folder-meta{font-size:.78rem;color:#888}
 .folder-card .folder-stats{display:flex;gap:6px;flex-wrap:wrap}
 .folder-card{position:relative}
+.folder-card.completed{opacity:.55;filter:grayscale(.5)}
+.folder-card.completed:hover{opacity:.75}
+.completed-badge{position:absolute;top:10px;right:10px;background:#2e7d32;color:#fff;font-size:.68rem;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.5px}
+.proj-filter-bar{display:flex;gap:6px;margin-bottom:14px}
+.proj-filter-bar button{padding:4px 14px;border-radius:20px;border:1px solid #c8d3e8;background:#f5f7fb;color:#555;cursor:pointer;font-size:.85rem;transition:background .15s}
+.proj-filter-bar button.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
+.btn-complete{padding:4px 12px;border-radius:6px;border:1px solid #2e7d32;background:#e8f5e9;color:#2e7d32;cursor:pointer;font-size:.82rem;font-weight:600;transition:background .15s}
+.btn-complete:hover{background:#c8e6c9}
+.btn-complete.is-completed{border-color:#b0bec5;background:#f5f5f5;color:#888}
 .projects-search{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
 .projects-search input{flex:1;min-width:160px;padding:8px 14px;border:1px solid #ccc;border-radius:20px;font-size:.9rem;font-family:inherit}
 .projects-search input:focus{outline:none;border-color:#1a73e8}
@@ -210,6 +219,11 @@ main{padding:24px}
       <h2>📁 所有项目</h2>
       <button class="btn-new-folder" id="btnNewFolder">+ 新建项目</button>
     </div>
+    <div class="proj-filter-bar">
+      <button class="active" data-pf="active">进行中</button>
+      <button data-pf="all">全部</button>
+      <button data-pf="completed">已完结</button>
+    </div>
     <div class="projects-grid" id="projectsGrid"></div>
   </div>
   <!-- 图片视图 -->
@@ -219,6 +233,7 @@ main{padding:24px}
       <span class="project-title" id="projectTitle"></span>
       <button class="btn-import-table" id="btnImportTable" style="margin-left:auto" title="上传 CSV 表格，前三列依次为序号、关键词、造句">📥 导入表格</button>
       <button class="btn-import-table secondary" id="btnClearTable" style="display:none" title="清空当前项目的表格">清空</button>
+      <button class="btn-complete" id="btnComplete" style="display:none">✓ 标记完结</button>
       <input type="file" id="tableFileInput" accept=".csv,.txt,.xlsx,.xls" style="display:none"/>
     </div>
     <div class="projects-search" id="imgSearchBar">
@@ -1204,6 +1219,7 @@ function applyLogin(){
   document.getElementById("btnApprove").style.display=currentRole==="reviewer"?"inline-block":"none";
   document.getElementById("btnReject").style.display=currentRole==="reviewer"?"inline-block":"none";
   document.getElementById("btnDelete").style.display=currentRole==="uploader"?"inline-block":"none";
+  _updateCompleteBtn();
   refreshBatchBar();
   if("Notification" in window&&Notification.permission==="default")Notification.requestPermission();
   subscribeNotifications();
@@ -1218,6 +1234,15 @@ applyLogin();
 let currentProjectId=null,currentProjectName="";
 const projectsView=document.getElementById("projectsView"),imagesView=document.getElementById("imagesView"),projectsGrid=document.getElementById("projectsGrid"),projectTitle=document.getElementById("projectTitle"),headerTitle=document.getElementById("headerTitle");
 
+let _projFilter="active";
+document.querySelectorAll(".proj-filter-bar button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    _projFilter=btn.dataset.pf;
+    document.querySelectorAll(".proj-filter-bar button").forEach(b=>b.classList.toggle("active",b===btn));
+    loadProjects();
+  });
+});
+
 async function loadProjects(){
   const{data:projects}=await sb.from("projects").select("*").order("created_at",{ascending:false});
   const counts={};
@@ -1231,17 +1256,21 @@ async function loadProjects(){
   projectsGrid.innerHTML="";
   const ucTotal=counts["__uncat__"]||0;
   const ucPending=pending["__uncat__"]||0;
-  if(ucTotal>0){const card=makeProjectCard("__uncat__","未分类",ucTotal,ucPending,"系统","");projectsGrid.appendChild(card);}
+  if(ucTotal>0&&_projFilter!=="completed"){const card=makeProjectCard("__uncat__","未分类",ucTotal,ucPending,"系统","",false);projectsGrid.appendChild(card);}
   (projects||[]).forEach(p=>{
     const total=counts[p.id]||0;const pend=pending[p.id]||0;
-    projectsGrid.appendChild(makeProjectCard(p.id,p.name,total,pend,p.created_by,p.created_at));
+    const done=!!(p.metadata&&p.metadata.completed);
+    if(_projFilter==="active"&&done)return;
+    if(_projFilter==="completed"&&!done)return;
+    projectsGrid.appendChild(makeProjectCard(p.id,p.name,total,pend,p.created_by,p.created_at,done));
   });
 }
 
-function makeProjectCard(id,name,total,pend,createdBy,createdAt){
-  const card=document.createElement("div");card.className="folder-card";
+function makeProjectCard(id,name,total,pend,createdBy,createdAt,completed){
+  const card=document.createElement("div");
+  card.className="folder-card"+(completed?" completed":"");
   const dateStr=createdAt?fmt(createdAt):"";
-  card.innerHTML='<div class="folder-icon">📁</div><div class="folder-name">'+name+'</div><div class="folder-stats"><span class="badge badge-pending">待审 '+pend+'</span><span class="badge" style="background:#e9ecef;color:#555">共 '+total+' 张</span></div><div class="folder-meta">'+(createdBy||"")+(dateStr?" · "+dateStr:"")+'</div>';
+  card.innerHTML=(completed?'<div class="completed-badge">✓ 完结</div>':'')+'<div class="folder-icon">📁</div><div class="folder-name">'+name+'</div><div class="folder-stats"><span class="badge badge-pending">待审 '+pend+'</span><span class="badge" style="background:#e9ecef;color:#555">共 '+total+' 张</span></div><div class="folder-meta">'+(createdBy||"")+(dateStr?" · "+dateStr:"")+'</div>';
   card.addEventListener("click",()=>openProject(id,name));
   return card;
 }
@@ -1263,7 +1292,28 @@ async function loadProjectMeta(id){
   const{data}=await sb.from("projects").select("metadata").eq("id",id).maybeSingle();
   currentProjectMeta=(data&&data.metadata)||{};
   document.getElementById("btnClearTable").style.display=currentProjectMeta&&currentProjectMeta.table?"":"none";
+  _updateCompleteBtn();
 }
+function _updateCompleteBtn(){
+  const btn=document.getElementById("btnComplete");
+  if(!currentProjectId||currentProjectId==="__uncat__"||currentRole!=="reviewer"){btn.style.display="none";return;}
+  btn.style.display="";
+  const done=!!(currentProjectMeta&&currentProjectMeta.completed);
+  btn.textContent=done?"↩ 取消完结":"✓ 标记完结";
+  btn.classList.toggle("is-completed",done);
+}
+document.getElementById("btnComplete").addEventListener("click",async()=>{
+  if(!currentProjectId||currentProjectId==="__uncat__")return;
+  const done=!!(currentProjectMeta&&currentProjectMeta.completed);
+  const msg=done?"确定取消完结状态？":"确定将此项目标记为已完结？";
+  if(!confirm(msg))return;
+  const meta={...(currentProjectMeta||{}),completed:!done};
+  const{error}=await sb.from("projects").update({metadata:meta}).eq("id",currentProjectId);
+  if(error){showCopyToast("操作失败："+error.message);return;}
+  currentProjectMeta=meta;
+  _updateCompleteBtn();
+  showCopyToast(done?"已取消完结":"已标记为完结 ✓");
+});
 function parseCsv(text){
   const rows=[];let row=[],cell="",inQ=false;
   for(let i=0;i<text.length;i++){
@@ -1902,17 +1952,35 @@ document.getElementById("chkSelectMode").addEventListener("change",e=>{selectMod
 document.getElementById("chkSelectAll").addEventListener("change",e=>{if(e.target.checked)getFiltered().forEach(i=>selectedIds.add(i.id));else selectedIds.clear();renderGrid();updateBatchCount();});
 document.getElementById("btnBatchDownload").addEventListener("click",async()=>{
   if(!selectedIds.size){alert("请先勾选图片");return;}
+  const ids=[...selectedIds];
+  const btn=document.getElementById("btnBatchDownload");
+  const origText=btn.textContent;
   try{
     const JSZip=(await import("https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm")).default;
     const zip=new JSZip();
-    for(const id of selectedIds){
-      const item=allDocs.find(d=>d.id===id);if(!item)continue;
-      const r=await fetch(item.url);const b=await r.blob();
-      zip.file(item.filename||id+".png",b);
+    const CONCURRENCY=3;
+    let done=0;
+    btn.disabled=true;
+    const update=()=>{btn.textContent=`打包中 ${done}/${ids.length}…`;};
+    update();
+    // 分批并发
+    for(let i=0;i<ids.length;i+=CONCURRENCY){
+      const batch=ids.slice(i,i+CONCURRENCY);
+      await Promise.all(batch.map(async id=>{
+        const item=allDocs.find(d=>d.id===id);if(!item)return;
+        try{
+          const r=await fetch(item.url);
+          const b=await r.blob();
+          zip.file(item.filename||id+".png",b);
+        }catch(e){console.warn("跳过",item.filename,e);}
+        done++;update();
+      }));
     }
-    const blob=await zip.generateAsync({type:"blob"});
+    btn.textContent="生成 ZIP…";
+    const blob=await zip.generateAsync({type:"blob",compression:"DEFLATE",compressionOptions:{level:1}});
     const a=document.createElement("a");const u=URL.createObjectURL(blob);a.href=u;a.download="picreview_"+Date.now()+".zip";a.click();URL.revokeObjectURL(u);
   }catch(err){alert("打包失败："+err.message);}
+  finally{btn.disabled=false;btn.textContent=origText;}
 });
 document.getElementById("btnBatchDelete").addEventListener("click",async()=>{
   if(currentRole!=="uploader")return;
