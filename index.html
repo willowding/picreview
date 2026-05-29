@@ -1292,10 +1292,37 @@ function _impEmptyRatio(rows,colIdx){
   return body.length?empty/body.length:1;
 }
 
+function _impResolveCell(cell){
+  // 有值直接返回
+  if(cell==null)return"";
+  if(typeof cell!=="object")return String(cell);
+  // 有缓存值 v
+  if(cell.v!=null&&cell.v!=="")return String(cell.v);
+  // 跨 Sheet 公式引用：='SheetName'!B2 或 =SheetName!B2
+  if(cell.f){
+    const m=cell.f.match(/^='?([^'!]+)'?!([A-Z]+\d+)$/i);
+    if(m){
+      const refSheet=m[1];const refAddr=m[2];
+      const refWs=_impWb&&_impWb.Sheets[refSheet];
+      if(refWs&&refWs[refAddr]!=null){
+        const rv=refWs[refAddr].v;
+        if(rv!=null)return String(rv);
+      }
+    }
+  }
+  return cell.v!=null?String(cell.v):"";
+}
+
 function _impSheetRows(sheetName){
   if(!_impWb)return[];
   const ws=_impWb.Sheets[sheetName];
-  return XLSX.utils.sheet_to_json(ws,{header:1,defval:""}).map(r=>r.map(c=>(c==null?"":String(c))));
+  // 用 raw 模式取到完整 cell 对象，再手动解析（处理跨 Sheet 公式）
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
+  return raw.map(r=>r.map(c=>{
+    if(c==null)return"";
+    if(typeof c==="object"&&!Array.isArray(c))return _impResolveCell(c);
+    return String(c);
+  }));
 }
 
 function _impBuildUI(){
@@ -1369,7 +1396,7 @@ async function openImportModal(file){
   if(name.endsWith(".xlsx")||name.endsWith(".xls")){
     if(typeof XLSX==="undefined"){showCopyToast("xlsx 解析库未加载，请检查网络");return;}
     const buf=await file.arrayBuffer();
-    _impWb=XLSX.read(buf,{type:"array"});
+    _impWb=XLSX.read(buf,{type:"array",cellFormula:true,cellNF:false,cellDates:true});
     _impBuildUI();
     document.getElementById("importModal").classList.add("open");
   }else{
