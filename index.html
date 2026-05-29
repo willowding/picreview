@@ -1229,7 +1229,6 @@ function applyLogin(){
   document.getElementById("btnApprove").style.display=currentRole==="reviewer"?"inline-block":"none";
   document.getElementById("btnReject").style.display=currentRole==="reviewer"?"inline-block":"none";
   document.getElementById("btnDelete").style.display=currentRole==="uploader"?"inline-block":"none";
-  _updateCompleteBtn();
   refreshBatchBar();
   if("Notification" in window&&Notification.permission==="default")Notification.requestPermission();
   subscribeNotifications();
