@@ -1244,7 +1244,9 @@ document.querySelectorAll(".proj-filter-bar button").forEach(btn=>{
 });
 
 async function loadProjects(){
-  const{data:projects}=await sb.from("projects").select("*").order("created_at",{ascending:false});
+  try{
+  const{data:projects,error:pe}=await sb.from("projects").select("*").order("created_at",{ascending:false});
+  if(pe)throw pe;
   const counts={};
   const pending={};
   const imgs=await fetchAllRows(()=>sb.from("images").select("id,project_id,status"));
@@ -1264,6 +1266,7 @@ async function loadProjects(){
     if(_projFilter==="completed"&&!done)return;
     projectsGrid.appendChild(makeProjectCard(p.id,p.name,total,pend,p.created_by,p.created_at,done));
   });
+  }catch(err){projectsGrid.innerHTML='<p style="color:red;padding:20px">加载失败：'+err.message+'</p>';console.error("loadProjects error",err);}
 }
 
 function makeProjectCard(id,name,total,pend,createdBy,createdAt,completed){
@@ -1296,13 +1299,15 @@ async function loadProjectMeta(id){
 }
 function _updateCompleteBtn(){
   const btn=document.getElementById("btnComplete");
+  if(!btn)return;
   if(!currentProjectId||currentProjectId==="__uncat__"||currentRole!=="reviewer"){btn.style.display="none";return;}
   btn.style.display="";
   const done=!!(currentProjectMeta&&currentProjectMeta.completed);
   btn.textContent=done?"↩ 取消完结":"✓ 标记完结";
   btn.classList.toggle("is-completed",done);
 }
-document.getElementById("btnComplete").addEventListener("click",async()=>{
+const _btnComplete=document.getElementById("btnComplete");
+if(_btnComplete)_btnComplete.addEventListener("click",async()=>{
   if(!currentProjectId||currentProjectId==="__uncat__")return;
   const done=!!(currentProjectMeta&&currentProjectMeta.completed);
   const msg=done?"确定取消完结状态？":"确定将此项目标记为已完结？";
