@@ -122,7 +122,24 @@ main{padding:24px}
 .replaceBtn{width:100%;margin-top:8px;padding:7px;background:#dc3545;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:600}
 .btn-rename{background:none;border:none;cursor:pointer;color:#aaa;font-size:.85rem;padding:0 4px;vertical-align:middle;line-height:1}
 .btn-rename:hover{color:#1a73e8}
-#toastContainer{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+#importModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center}
+#importModal.open{display:flex}
+.import-box{background:#fff;border-radius:16px;padding:28px 30px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25)}
+.import-box h2{font-size:1.05rem;margin:0 0 18px;color:#1a1a1a}
+.import-section{margin-bottom:18px}
+.import-section label{display:block;font-size:.82rem;font-weight:700;color:#555;margin-bottom:6px}
+.import-section select{width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:8px;font-size:.88rem;background:#fff}
+.import-col-list{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:160px;overflow-y:auto;padding:4px 0}
+.import-col-item{display:flex;align-items:center;gap:6px;font-size:.82rem;padding:4px 8px;border-radius:6px;background:#f8f9fa}
+.import-col-item input{flex-shrink:0}
+.import-col-item.empty-col{opacity:.4}
+.import-preview{background:#f8f9fa;border-radius:8px;padding:10px 12px;font-size:.78rem;color:#555;margin-bottom:18px;max-height:80px;overflow:hidden;line-height:1.7}
+.import-actions{display:flex;gap:10px;justify-content:flex-end}
+.import-actions button{padding:8px 22px;border-radius:8px;border:none;cursor:pointer;font-size:.88rem;font-weight:700}
+.btn-import-confirm{background:#1a73e8;color:#fff}
+.btn-import-confirm:hover{background:#1558b0}
+.btn-import-cancel{background:#e9ecef;color:#333}
+.btn-import-cancel:hover{background:#dee2e6}
 .toast{background:#323232;color:#fff;border-radius:12px;padding:13px 18px;font-size:.88rem;box-shadow:0 4px 20px rgba(0,0,0,.35);pointer-events:all;display:flex;align-items:flex-start;gap:10px;max-width:320px;line-height:1.5;animation:toastIn .25s ease}
 @keyframes toastIn{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
 .toast-close{background:none;border:none;color:#fff;cursor:pointer;font-size:1.1rem;padding:0;opacity:.6;flex-shrink:0;margin-left:auto}
@@ -291,508 +308,6 @@ main{padding:24px}
 </div>
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-const SENTENCE_MAP={
-  "40001":{kw:"天",s:"蓝蓝的天空飘着朵朵白云。"},
-  "40002":{kw:"地",s:"我们在绿油油的草地上奔跑。"},
-  "40003":{kw:"人",s:"广场上真是人山人海。"},
-  "40004":{kw:"你",s:"你们都是我的朋友。"},
-  "40005":{kw:"我",s:"我们要团结友爱，互相帮助。"},
-  "40006":{kw:"他",s:"他们在操场上快乐地踢足球。"},
-  "40007":{kw:"一",s:"我是一个爱学习的好孩子。"},
-  "40008":{kw:"二",s:"爷爷坐在树下拉着二胡。"},
-  "40009":{kw:"三",s:"三月到了，天气慢慢暖和起来了。"},
-  "40010":{kw:"四",s:"四只小鸭子在水里游来游去。"},
-  "40011":{kw:"五",s:"小河里游着五条小鱼，快活又自在。"},
-  "40012":{kw:"上",s:"我们上课时认真听讲。"},
-  "40013":{kw:"下",s:"下雨了，雨点在屋顶上跳起舞来。"},
-  "40014":{kw:"口",s:"奶奶坐在门口，等着我放学回家。"},
-  "40015":{kw:"耳",s:"小兔子竖起耳朵，好像在听悄悄话。"},
-  "40016":{kw:"目",s:"老师的目光，像阳光一样温暖我。"},
-  "40017":{kw:"手",s:"我用双手接住天上飘下来的小雪花。"},
-  "40018":{kw:"足",s:"哥哥在操场上踢足球。"},
-  "40019":{kw:"站",s:"爸爸在车站等我一起回家。"},
-  "40020":{kw:"坐",s:"我每天乘坐校车去学校。"},
-  "40021":{kw:"日",s:"儿童节是我们最喜欢的节日。"},
-  "40022":{kw:"月",s:"弯弯的月亮像小船，在夜空里飘荡。"},
-  "40023":{kw:"水",s:"妈妈买了许多新鲜的水果。"},
-  "40024":{kw:"火",s:"长长的火车轰隆隆地穿过山洞。"},
-  "40025":{kw:"山",s:"周末，我们全家要一起去登山。"},
-  "40026":{kw:"石",s:"花瓣上的露珠好像透明的小宝石。"},
-  "40027":{kw:"田",s:"春天的田野，开满金黄的油菜花。"},
-  "40028":{kw:"禾",s:"雨后的禾苗绿油油的。"},
-  "40029":{kw:"对",s:"我家就住在学校的对面。"},
-  "40030":{kw:"云",s:"天上的云朵像一只只可爱的小绵羊。"},
-  "40031":{kw:"雨",s:"细细的雨点轻轻地敲着窗户。"},
-  "40032":{kw:"风",s:"春风轻轻地吹着，我把风筝放上天。"},
-  "40033":{kw:"花",s:"春天的花园里，蝴蝶在翩翩起舞。"},
-  "40034":{kw:"鸟",s:"秋天到了，候鸟排着队向南方飞去。"},
-  "40035":{kw:"虫",s:"小鸟低下头，寻找草地上的小虫子。"},
-  "40036":{kw:"六",s:"草原上有六匹小马在快乐地奔跑。"},
-  "40037":{kw:"七",s:"路边有七颗挺拔的白杨树。"},
-  "40038":{kw:"八",s:"我画了八朵小红花送给妈妈。"},
-  "40039":{kw:"九",s:"地上摆着九块积木，我要用它们搭一座小塔。"},
-  "40040":{kw:"十",s:"十根手指头，长短不一样。"},
-  "40041":{kw:"爸",s:"爸爸像大树一样为我遮风挡雨。"},
-  "40042":{kw:"妈",s:"妈妈笑着给我讲有趣的故事。"},
-  "40043":{kw:"马",s:"我们过马路时要注意来往的车辆。"},
-  "40044":{kw:"土",s:"春雨过后，泥土里钻出了绿色的小草。"},
-  "40045":{kw:"不",s:"这不是我的故事书。"},
-  "40046":{kw:"画",s:"我长大以后想当一名画家。"},
-  "40047":{kw:"打",s:"周末我和爸爸一起去打球。"},
-  "40048":{kw:"棋",s:"哥哥每天都会认真练习围棋。"},
-  "40049":{kw:"鸡",s:"我每天早上都会吃一个鸡蛋。"},
-  "40050":{kw:"字",s:"这幅字画是爷爷珍藏多年的宝贝。"},
-  "40051":{kw:"词",s:"老师教我们认识了很多新词语。"},
-  "40052":{kw:"语",s:"我最喜欢上有趣的语文课。"},
-  "40053":{kw:"句",s:"老师写的诗句，我们都很喜欢。"},
-  "40054":{kw:"子",s:"桌子上放着一本好看的故事书。"},
-  "40055":{kw:"桌",s:"教室里的桌子摆得整整齐齐。"},
-  "40056":{kw:"纸",s:"我用一张白纸折了一只千纸鹤。"},
-  "40057":{kw:"文",s:"我们要做讲文明懂礼貌的好学生。"},
-  "40058":{kw:"数",s:"老师教我们认识有趣的数字。"},
-  "40059":{kw:"学",s:"我们要努力学习新知识。"},
-  "40060":{kw:"音",s:"我们在音乐声中快乐地跳舞。"},
-  "40061":{kw:"乐",s:"小朋友脸上露出快乐的笑容。"},
-  "40062":{kw:"妹",s:"我的妹妹笑起来有两个小酒窝。"},
-  "40063":{kw:"奶",s:"我早上喜欢喝一杯温热的牛奶。"},
-  "40064":{kw:"白",s:"我喜欢这件干净的白色衣服。"},
-  "40065":{kw:"皮",s:"圆圆的皮球在草地上滚来滚去。"},
-  "40066":{kw:"小",s:"我今年上小学二年级了。"},
-  "40067":{kw:"桥",s:"这座桥梁有几百年的历史。"},
-  "40068":{kw:"台",s:"上楼时要小心脚下的台阶。"},
-  "40069":{kw:"雪",s:"漫天的雪花像一个个小精灵在跳舞。"},
-  "40070":{kw:"儿",s:"我和妈妈去儿童乐园开心地玩游戏。"},
-  "40071":{kw:"草",s:"春天到了，小草从土里探出头来。"},
-  "40072":{kw:"家",s:"我有一个温暖幸福的家庭。"},
-  "40073":{kw:"是",s:"我想出去玩，可是外面下雨了。"},
-  "40074":{kw:"车",s:"爸爸开着汽车带我们去郊游。"},
-  "40075":{kw:"羊",s:"小羊在草地上快乐地吃草。"},
-  "40076":{kw:"走",s:"小朋友排着整齐的队伍一起走路。"},
-  "40077":{kw:"也",s:"我们是小学生，也是祖国的花朵。"},
-  "40078":{kw:"秋",s:"我最喜欢的季节是秋天。"},
-  "40079":{kw:"气",s:"今天的天气真好，阳光明媚。"},
-  "40080":{kw:"了",s:"老师带我们了解了很多有趣的故事。"},
-  "40081":{kw:"树",s:"春天来了，大树长出了嫩绿的新芽。"},
-  "40082":{kw:"叶",s:"一片叶子落在我的肩膀上。"},
-  "40083":{kw:"片",s:"桌上放着一片香喷喷的面包。"},
-  "40084":{kw:"大",s:"门前的大树长得粗壮又高大。"},
-  "40085":{kw:"飞",s:"我看见一架大飞机从天上飞过去。"},
-  "40086":{kw:"会",s:"老师正在会议室里认真开会。"},
-  "40087":{kw:"个",s:"树上有一个红红的大苹果。"},
-  "40088":{kw:"的",s:"我认真画画的目的，是想送给妈妈一副画。"},
-  "40089":{kw:"船",s:"湖面上飘着几只白色的小船。"},
-  "40090":{kw:"两",s:"两个好朋友手拉手一起回家。"},
-  "40091":{kw:"头",s:"妈妈的头发像黑色的瀑布。"},
-  "40092":{kw:"在",s:"小鸟正在树上快活地唱歌。"},
-  "40093":{kw:"里",s:"教室里面摆放着整齐的桌椅。"},
-  "40094":{kw:"看",s:"我看见一只蝴蝶在花丛中飞舞。"},
-  "40095":{kw:"见",s:"我们在郊外遇见了可爱的小动物。"},
-  "40096":{kw:"闪",s:"萤火虫在草丛里快乐地闪烁。"},
-  "40097":{kw:"星",s:"天上的星星仿佛在对我眨眼睛。"},
-  "40098":{kw:"江",s:"长江上有很多来来往往的船只。"},
-  "40099":{kw:"南",s:"温暖的南方盛开着美丽的鲜花。"},
-  "40100":{kw:"可",s:"我们都可以做懂事可爱的孩子。"},
-  "40101":{kw:"采",s:"农民伯伯在果园里采摘苹果。"},
-  "40102":{kw:"莲",s:"池塘里开满了粉色的莲花。"},
-  "40103":{kw:"鱼",s:"我养了两条红色的金鱼。"},
-  "40104":{kw:"东",s:"太阳每天都从东方升起。"},
-  "40105":{kw:"西",s:"太阳从西边慢慢地落下去了。"},
-  "40106":{kw:"北",s:"冬天到了，北方下起了大雪。"},
-  "40107":{kw:"尖",s:"见到小丑表演，大家开心地尖叫。"},
-  "40108":{kw:"说",s:"我们听说要去春游，十分开心。"},
-  "40109":{kw:"春",s:"春天来了，公园里的花都开了。"},
-  "40110":{kw:"青",s:"嫩嫩的青草长满了整个山坡。"},
-  "40111":{kw:"蛙",s:"青蛙在荷叶上呱呱地唱歌。"},
-  "40112":{kw:"夏",s:"夏天我们可以吃甜甜的西瓜。"},
-  "40113":{kw:"弯",s:"我们弯腰捡起地上的纸屑。"},
-  "40114":{kw:"就",s:"他的成就来自于刻苦努力的学习。"},
-  "40115":{kw:"冬",s:"小朋友在冬天快乐地堆起雪人。"},
-  "40116":{kw:"男",s:"男女同学要团结友爱，互相帮助。"},
-  "40117":{kw:"女",s:"那个女孩在认真地画画。"},
-  "40118":{kw:"开",s:"我打开窗户，让阳光照进来。"},
-  "40119":{kw:"关",s:"我们要多关心身边的人和事。"},
-  "40120":{kw:"正",s:"阳光正好洒在了我的书桌上。"},
-  "40121":{kw:"反",s:"我举手反对这个不合理的决定。"},
-  "40122":{kw:"远",s:"爸爸去了远方工作，我很想念他。"},
-  "40123":{kw:"有",s:"我有一本非常好看的故事书。"},
-  "40124":{kw:"色",s:"花园里开满了各种颜色的鲜花。"},
-  "40125":{kw:"近",s:"近处的池塘里开着美丽的荷花。"},
-  "40126":{kw:"听",s:"我听见小鸟在窗外唱歌。"},
-  "40127":{kw:"无",s:"天上有无数颗闪亮的星星。"},
-  "40128":{kw:"声",s:"教室里传来了同学们的读书声。"},
-  "40129":{kw:"去",s:"去年春天，我们一起种下小树苗。"},
-  "40130":{kw:"还",s:"活动结束后，我们把场地还原整齐。"},
-  "40131":{kw:"来",s:"阳光是植物生长的主要能量来源。"},
-  "40132":{kw:"多",s:"天上飘着许多美丽的白云。"},
-  "40133":{kw:"少",s:"沙漠里的小草十分稀少，它们坚强地生长着。"},
-  "40134":{kw:"黄",s:"秋天，树叶都变成了黄色的。"},
-  "40135":{kw:"牛",s:"我每天喝一杯热牛奶。"},
-  "40136":{kw:"只",s:"一只可爱的小鸟停在了树枝上。"},
-  "40137":{kw:"猫",s:"小猫咪躺在阳台上晒太阳。"},
-  "40138":{kw:"边",s:"我们在海边捡了许多贝壳。"},
-  "40139":{kw:"鸭",s:"果园里结满了香甜的鸭梨。"},
-  "40140":{kw:"苹",s:"红红的苹果像小灯笼挂在枝头。"},
-  "40141":{kw:"果",s:"我们在果园里快乐地采摘果子。"},
-  "40142":{kw:"杏",s:"春天来了，公园里的杏花开了。"},
-  "40143":{kw:"桃",s:"春天来了，公园里的桃花都开了。"},
-  "40144":{kw:"书",s:"开学了，妈妈给我买了新书包。"},
-  "40145":{kw:"包",s:"妈妈给我买了一个漂亮的新书包。"},
-  "40146":{kw:"尺",s:"我用尺子画了一条笔直的线。"},
-  "40147":{kw:"作",s:"这位作家写了很多有趣的童话故事。"},
-  "40148":{kw:"业",s:"我每天都认真完成老师留的作业。"},
-  "40149":{kw:"本",s:"老师给我们讲绘本里的故事。"},
-  "40150":{kw:"笔",s:"路边的小树苗长得笔直。"},
-  "40151":{kw:"刀",s:"妈妈用剪刀剪出了一朵小红花。"},
-  "40152":{kw:"课",s:"我们上课时积极举手，大胆发言。"},
-  "40153":{kw:"早",s:"早上，我迎着太阳去上学。"},
-  "40154":{kw:"校",s:"学校里的桂花真香啊！"},
-  "40155":{kw:"明",s:"太阳出来了，大地一片光明。"},
-  "40156":{kw:"力",s:"我们要努力学习新知识。"},
-  "40157":{kw:"尘",s:"打扫教室时，空中飘着轻轻的灰尘。"},
-  "40158":{kw:"从",s:"奶奶经常给我讲从前的故事。"},
-  "40159":{kw:"众",s:"台下的观众为表演者热烈鼓掌。"},
-  "40160":{kw:"双",s:"我用双手把教室打扫得干干净净。"},
-  "40161":{kw:"木",s:"森林里有一间用木头盖成的小屋。"},
-  "40162":{kw:"林",s:"小鸟在树林里快活地唱歌。"},
-  "40163":{kw:"森",s:"森林里住着许多可爱的小动物。"},
-  "40164":{kw:"条",s:"小河里有一条红色的小鱼在游泳。"},
-  "40165":{kw:"心",s:"今天是我的生日，我特别开心。"},
-  "40166":{kw:"升",s:"太阳从东方慢慢地升起来了。"},
-  "40167":{kw:"国",s:"我们国家有着悠久的历史。"},
-  "40168":{kw:"旗",s:"鲜艳的旗帜在校园上空迎风飘扬。"},
-  "40169":{kw:"中",s:"我坐在爸爸和妈妈的中间。"},
-  "40170":{kw:"红",s:"妈妈给我买了一条红色的新裙子。"},
-  "40171":{kw:"歌",s:"我们在校园里唱起欢快的歌曲。"},
-  "40172":{kw:"起",s:"我每天早上都按时起床。"},
-  "40173":{kw:"么",s:"小朋友脸上的笑容多么灿烂呀！"},
-  "40174":{kw:"美",s:"公园里的花儿真美丽。"},
-  "40175":{kw:"丽",s:"春天来了，公园的景色真美丽。"},
-  "40176":{kw:"立",s:"小鸟站立在枝头，快乐地唱歌。"},
-  "40177":{kw:"午",s:"中午，我们在学校食堂吃饭。"},
-  "40178":{kw:"晚",s:"夕阳西下，天边铺满了绚丽的晚霞。"},
-  "40179":{kw:"昨",s:"昨夜，我做了一个甜甜的梦。"},
-  "40180":{kw:"今",s:"今天的校园干净又美丽。"},
-  "40181":{kw:"年",s:"我们年级举行了一场拔河比赛。"},
-  "40182":{kw:"影",s:"我和妈妈一起去看了一场有趣的电影。"},
-  "40183":{kw:"前",s:"我们家前面有一条清澈的小河。"},
-  "40184":{kw:"后",s:"小猫跟在我的后面喵喵叫。"},
-  "40185":{kw:"黑",s:"我喜欢那双黑色的运动鞋。"},
-  "40186":{kw:"狗",s:"森林里的狗熊正在吃甜甜的蜂蜜。"},
-  "40187":{kw:"左",s:"过马路时，我们一定要左右看。"},
-  "40188":{kw:"右",s:"写字时，我用右手拿笔。"},
-  "40189":{kw:"它",s:"小蚂蚁忙着搬家，它们非常勤劳。"},
-  "40190":{kw:"好",s:"那位拾金不昧的叔叔真是个好人。"},
-  "40191":{kw:"朋",s:"我和朋友在树下互相分享点心。"},
-  "40192":{kw:"友",s:"我们要和同学友好相处，互相帮助。"},
-  "40193":{kw:"比",s:"跑步比赛中，我像风一样冲向终点。"},
-  "40194":{kw:"尾",s:"小狗摇着尾巴，欢迎主人回家。"},
-  "40195":{kw:"巴",s:"我每天放学坐巴士回家。"},
-  "40196":{kw:"谁",s:"这是谁的书包放在了桌子上？"},
-  "40197":{kw:"长",s:"长江是我们的母亲河。"},
-  "40198":{kw:"短",s:"他在短跑比赛中获得了第一名。"},
-  "40199":{kw:"把",s:"他对这次考试很有把握。"},
-  "40200":{kw:"伞",s:"雨滴在雨伞上欢快地跳舞。"},
-  "40201":{kw:"兔",s:"小兔子竖起长长的耳朵在吃青草。"},
-  "40202":{kw:"最",s:"春天是外出游玩最好的季节。"},
-  "40203":{kw:"公",s:"春天的公园里，桃花笑得涨红了脸。"},
-  "40204":{kw:"写",s:"他写字时，每一个笔画都那么认真。"},
-  "40205":{kw:"诗",s:"我会背很多首有趣的古诗。"},
-  "40206":{kw:"点",s:"小雨点轻轻地敲打着窗户。"},
-  "40207":{kw:"要",s:"植物的生长需要充足的水分和阳光。"},
-  "40208":{kw:"过",s:"过去，我常和奶奶在院子里晒太阳。"},
-  "40209":{kw:"给",s:"妈妈给予我的爱像星星一样数不清。"},
-  "40210":{kw:"当",s:"看到垃圾，我们应当把它捡起来扔进垃圾桶。"},
-  "40211":{kw:"串",s:"外婆最喜欢邻居来家里串门聊天。"},
-  "40212":{kw:"们",s:"我们都是爱学习的好孩子。"},
-  "40213":{kw:"以",s:"放学以后，我在教室里整理好书包。"},
-  "40214":{kw:"成",s:"我完成了作业，心里真轻松。"},
-  "40215":{kw:"彩",s:"雨停了，天上出现了一道美丽的彩虹。"},
-  "40216":{kw:"半",s:"我用了半天时间才读完那本童话书。"},
-  "40217":{kw:"空",s:"蓝蓝的天空上飘着几朵白云。"},
-  "40218":{kw:"问",s:"我们遇到不懂的问题，要虚心求教。"},
-  "40219":{kw:"到",s:"我得到了老师的表扬。"},
-  "40220":{kw:"方",s:"指南针可以帮助我们辨别方向。"},
-  "40221":{kw:"没",s:"没有一片雪花是相同的。"},
-  "40222":{kw:"更",s:"春天来了，大自然更新了它的衣裳。"},
-  "40223":{kw:"绿",s:"绿色的小草从泥土里探出脑袋。"},
-  "40224":{kw:"出",s:"老师带我们排好队，从学校出发去郊游。"},
-  "40225":{kw:"睡",s:"天黑了，小宝宝在床上安静地睡觉。"},
-  "40226":{kw:"那",s:"那个穿着红裙子的小女孩是我的妹妹。"},
-  "40227":{kw:"海",s:"夏天，爸爸带我到海边去玩。"},
-  "40228":{kw:"真",s:"妹妹天真的眼睛，像亮晶晶的小星星。"},
-  "40229":{kw:"老",s:"王老师教我们画画和唱歌。"},
-  "40230":{kw:"师",s:"老师是辛勤的园丁，培育我们成长。"},
-  "40231":{kw:"吗",s:"我们一起去放风筝，好吗？"},
-  "40232":{kw:"同",s:"我们共同守护班级的荣誉。"},
-  "40233":{kw:"什",s:"是什么让花儿露出了笑脸？"},
-  "40234":{kw:"才",s:"每个孩子都有自己的才华。"},
-  "40235":{kw:"亮",s:"她笑得真漂亮，像春天的花。"},
-  "40236":{kw:"时",s:"时间像小河里的水悄悄地流走。"},
-  "40237":{kw:"候",s:"大树静静地等候春天的消息。"},
-  "40238":{kw:"觉",s:"我们要养成按时睡觉的好习惯。"},
-  "40239":{kw:"得",s:"我获得了绘画比赛的一等奖。"},
-  "40240":{kw:"自",s:"风筝在天空中自由地飞翔。"},
-  "40241":{kw:"己",s:"我学会自己收拾玩具了。"},
-  "40242":{kw:"很",s:"森林里有很多小动物在开音乐会。"},
-  "40243":{kw:"穿",s:"她穿着雨靴，在雨中踩水花。"},
-  "40244":{kw:"衣",s:"奶奶给我的毛衣绣了一朵花。"},
-  "40245":{kw:"服",s:"民族服装展示着多彩的文化。"},
-  "40246":{kw:"快",s:"小鱼在水里快乐地游来游去。"},
-  "40247":{kw:"蓝",s:"蔚蓝的湖水像一块宝石。"},
-  "40248":{kw:"又",s:"今天又是阳光灿烂的一天。"},
-  "40249":{kw:"笑",s:"小朋友拿到糖果，脸上露出了开心的笑容。"},
-  "40250":{kw:"着",s:"小雨执着地拍打着窗户。"},
-  "40251":{kw:"向",s:"我们朝着太阳的方向奔跑。"},
-  "40252":{kw:"和",s:"白鸽衔着树枝，传递和平的消息。"},
-  "40253":{kw:"贝",s:"贝壳躺在沙滩上，听海浪讲故事。"},
-  "40254":{kw:"娃",s:"我给娃娃穿了一件新裙子。"},
-  "40255":{kw:"推",s:"浪花推动小船，在水面轻轻前行。"},
-  "40256":{kw:"活",s:"户外活动让我们亲近大自然。"},
-  "40257":{kw:"金",s:"秋天给大地铺上了金色的地毯。"},
-  "40258":{kw:"哥",s:"哥哥经常给我讲解不会的题目。"},
-  "40259":{kw:"姐",s:"姐姐的琴声像泉水叮咚响。"},
-  "40260":{kw:"弟",s:"表弟和我一起堆了个大雪人。"},
-  "40261":{kw:"叔",s:"警察叔叔指挥交通真辛苦。"},
-  "40262":{kw:"爷",s:"爷爷的皱纹里藏着许多故事。"},
-  "40263":{kw:"群",s:"一群小鸟在天空中自由飞翔。"},
-  "40264":{kw:"竹",s:"过年放爆竹，噼里啪啦真热闹。"},
-  "40265":{kw:"牙",s:"每天早晚我都认真刷牙。"},
-  "40266":{kw:"用",s:"我们要发挥班干部的作用。"},
-  "40267":{kw:"几",s:"几个小朋友在树下玩老鹰捉小鸡。"},
-  "40268":{kw:"步",s:"我们迈着整齐的步伐向前进。"},
-  "40269":{kw:"为",s:"我要成为像爸爸一样勇敢的人。"},
-  "40270":{kw:"参",s:"我积极参加学校的文艺活动。"},
-  "40271":{kw:"加",s:"我加入了少先队，真光荣。"},
-  "40272":{kw:"洞",s:"山上有一个黑漆漆的山洞。"},
-  "40273":{kw:"乌",s:"我养了一只可爱的小乌龟。"},
-  "40274":{kw:"鸦",s:"乌鸦衔来石头，想喝瓶里的水。"},
-  "40275":{kw:"处",s:"我到处寻找我的尺子。"},
-  "40276":{kw:"找",s:"小蚂蚁在草丛里寻找丢失的米粒。"},
-  "40277":{kw:"办",s:"学校举办了精彩的读书活动。"},
-  "40278":{kw:"旁",s:"小河旁边长着高高的柳树。"},
-  "40279":{kw:"许",s:"公园里有许多美丽的花。"},
-  "40280":{kw:"法",s:"认真学习是进步的法宝。"},
-  "40281":{kw:"放",s:"每天放学后我都去打球。"},
-  "40282":{kw:"进",s:"我们要学习先进的科学知识。"},
-  "40283":{kw:"高",s:"小鸟在枝头高兴地唱起歌来。"},
-  "40284":{kw:"住",s:"我居住在一座美丽的城市。"},
-  "40285":{kw:"孩",s:"我们都是懂事的好孩子。"},
-  "40286":{kw:"玩",s:"我和伙伴们一起分享玩具。"},
-  "40287":{kw:"吧",s:"吧台摆放着很多精致的小杯子。"},
-  "40288":{kw:"发",s:"我发现了草丛里的小蚂蚁。"},
-  "40289":{kw:"芽",s:"春天到了，柳树发芽了。"},
-  "40290":{kw:"爬",s:"周末我们一家人去爬山。"},
-  "40291":{kw:"呀",s:"哎呀，我的橡皮找不到了！"},
-  "40292":{kw:"久",s:"这座城市有着悠久的历史。"},
-  "40293":{kw:"回",s:"夕阳西下，小鸟们叽叽喳喳地回家。"},
-  "40294":{kw:"全",s:"过马路时，一定要注意安全。"},
-  "40295":{kw:"变",s:"我的家乡变化真大呀！"},
-  "40296":{kw:"工",s:"工人用勤劳的双手建造高楼大厦。"},
-  "40297":{kw:"厂",s:"工厂里的机器有序运转。"},
-  "40298":{kw:"医",s:"我长大想成为一名医生。"},
-  "40299":{kw:"院",s:"庭院里的大树遮阴又凉快。"},
-  "40300":{kw:"生",s:"学生要好好学习、天天向上。"},
-  "40301":{kw:"霜",s:"风霜过后，树叶慢慢飘落。"},
-  "40302":{kw:"吹",s:"春风轻轻吹拂，柳条跳起了舞蹈。"},
-  "40303":{kw:"落",s:"金黄的落叶铺满乡间小路。"},
-  "40304":{kw:"降",s:"飞机稳稳地降落在跑道上。"},
-  "40305":{kw:"飘",s:"小船在水面轻轻地飘荡。"},
-  "40306":{kw:"游",s:"同学们在操场上开心地做游戏。"},
-  "40307":{kw:"池",s:"小青蛙在池塘里快乐地唱歌。"},
-  "40308":{kw:"入",s:"游乐园的入口处排起了长长的队伍。"},
-  "40309":{kw:"姓",s:"警察叔叔保护着百姓的安全。"},
-  "40310":{kw:"氏",s:"远古氏族有自己独特的习俗。"},
-  "40311":{kw:"李",s:"奶奶院子里的李子酸甜可口。"},
-  "40312":{kw:"张",s:"小鸟张开美丽的翅膀飞向蓝天。"},
-  "40313":{kw:"古",s:"我喜欢读古代神话故事。"},
-  "40314":{kw:"吴",s:"吴地的风景秀丽又迷人。"},
-  "40315":{kw:"赵",s:"我听过很多赵国的历史小故事。"},
-  "40316":{kw:"钱",s:"妈妈给我买了一个粉色的小钱包。"},
-  "40317":{kw:"孙",s:"爷爷牵着孙女的手在公园里散步。"},
-  "40318":{kw:"周",s:"我们的房子周围种满了桂花树。"},
-  "40319":{kw:"王",s:"国王住在美丽的城堡里。"},
-  "40320":{kw:"官",s:"妈妈的五官长得真好看。"},
-  "40321":{kw:"清",s:"盆里的清水映出了妹妹灿烂的笑脸。"},
-  "40322":{kw:"晴",s:"我最喜欢在晴天放风筝。"},
-  "40323":{kw:"眼",s:"妹妹有一双水汪汪的大眼睛。"},
-  "40324":{kw:"睛",s:"我们都要爱护自己的眼睛。"},
-  "40325":{kw:"保",s:"我们要保护森林里的小动物。"},
-  "40326":{kw:"护",s:"护士阿姨在给生病的小朋友打针。"},
-  "40327":{kw:"害",s:"妹妹害怕打雷的声音。"},
-  "40328":{kw:"事",s:"自己能做的事情一定要自己做。"},
-  "40329":{kw:"情",s:"帮助别人让我心情愉快。"},
-  "40330":{kw:"请",s:"今天我生日，爸爸请客吃大餐。"},
-  "40331":{kw:"让",s:"同学之间要互相谦让。"},
-  "40332":{kw:"病",s:"医生温柔地询问病人的身体情况。"},
-  "40333":{kw:"相",s:"同学之间应该互相帮助。"},
-  "40334":{kw:"遇",s:"我在公园遇见了我的好朋友。"},
-  "40335":{kw:"喜",s:"我最喜欢看雨后的彩虹。"},
-  "40336":{kw:"欢",s:"校园里充满了欢乐的笑声。"},
-  "40337":{kw:"怕",s:"小兔子害怕大灰狼，躲进了洞里。"},
-  "40338":{kw:"言",s:"姐姐的言行总是很得体。"},
-  "40339":{kw:"互",s:"好朋友之间要互相关心。"},
-  "40340":{kw:"令",s:"将军拿出令牌调动军队。"},
-  "40341":{kw:"动",s:"舞蹈老师的动作非常优美。"},
-  "40342":{kw:"万",s:"我们千万不能乱扔垃圾。"},
-  "40343":{kw:"纯",s:"孩子的笑容像雪花一样纯洁。"},
-  "40344":{kw:"净",s:"教室被我们打扫得真干净。"},
-  "40345":{kw:"阴",s:"我们在大树的树阴下乘凉。"},
-  "40346":{kw:"雷",s:"春雷唤醒了沉睡的种子。"},
-  "40347":{kw:"电",s:"闪电像一条银蛇在空中游走。"},
-  "40348":{kw:"阵",s:"夏天的阵雨说来就来了。"},
-  "40349":{kw:"冰",s:"妈妈从冰箱里拿出了西瓜。"},
-  "40350":{kw:"冻",s:"冬天到了，小河冻结成了一面镜子。"},
-  "40351":{kw:"夹",s:"妈妈用夹子把衣服晾在绳子上。"},
-  "40352":{kw:"吃",s:"这条街上有各种美味的小吃。"},
-  "40353":{kw:"忘",s:"我永远不会忘记老师的教导。"},
-  "40354":{kw:"井",s:"这口古老的水井养育了全村人。"},
-  "40355":{kw:"村",s:"山脚下的村庄里开满了桃花。"},
-  "40356":{kw:"叫",s:"看到流星，我们兴奋地尖叫起来。"},
-  "40357":{kw:"毛",s:"妈妈给我织的毛衣真暖和。"},
-  "40358":{kw:"主",s:"小狗见到主人高兴地摇尾巴。"},
-  "40359":{kw:"席",s:"夏天睡在凉席上真舒服。"},
-  "40360":{kw:"乡",s:"宁静的乡村有着金灿灿的麦田。"},
-  "40361":{kw:"亲",s:"父亲的爱像大山一样沉稳。"},
-  "40362":{kw:"战",s:"边防战士守护着我们的祖国。"},
-  "40363":{kw:"士",s:"士兵们排着整齐的队伍。"},
-  "40364":{kw:"面",s:"早餐我吃了牛奶和面包。"},
-  "40365":{kw:"想",s:"我的理想是当一名老师。"},
-  "40366":{kw:"告",s:"老师告诉我们要爱护花草树木。"},
-  "40367":{kw:"诉",s:"小鸟在枝头上诉说着春天的故事。"},
-  "40368":{kw:"路",s:"一盏盏路灯照亮了回家的路。"},
-  "40369":{kw:"京",s:"爷爷非常喜欢看京剧。"},
-  "40370":{kw:"安",s:"过马路一定要注意安全。"},
-  "40371":{kw:"门",s:"我拿着门票，兴奋地走进动物园。"},
-  "40372":{kw:"广",s:"广场上有很多人在放风筝。"},
-  "40373":{kw:"非",s:"公园里的花儿开得非常美丽。"},
-  "40374":{kw:"常",s:"我平常都是七点起床。"},
-  "40375":{kw:"壮",s:"祖国的山河多么壮丽呀！"},
-  "40376":{kw:"观",s:"我们喜欢观看足球比赛。"},
-  "40377":{kw:"接",s:"我虚心地接受了老师的建议。"},
-  "40378":{kw:"再",s:"我希望再次看到那片花海。"},
-  "40379":{kw:"做",s:"昨晚我做梦变成了一只小鸟。"},
-  "40380":{kw:"各",s:"我有各种颜色的画笔。"},
-  "40381":{kw:"种",s:"我在花盆里播下了一粒种子。"},
-  "40382":{kw:"样",s:"雷锋叔叔是我们学习的榜样。"},
-  "40383":{kw:"梦",s:"我的梦境像童话世界一样美。"},
-  "40384":{kw:"伙",s:"伙伴们在操场上玩老鹰捉小鸡。"},
-  "40385":{kw:"伴",s:"伴随着音乐，我们跳起了舞。"},
-  "40386":{kw:"却",s:"面对困难，我们不能退却。"},
-  "40387":{kw:"趣",s:"学校举办了一场趣味运动会。"},
-  "40388":{kw:"这",s:"这些花儿都是爷爷亲手种的。"},
-  "40389":{kw:"太",s:"太阳公公露出了笑脸。"},
-  "40390":{kw:"阳",s:"夕阳把天空染成了金色。"},
-  "40391":{kw:"道",s:"道路两旁种满了挺拔的杨树。"},
-  "40392":{kw:"送",s:"我们欢送毕业生离开校园。"},
-  "40393":{kw:"忙",s:"蜜蜂在花丛中忙碌着。"},
-  "40394":{kw:"尝",s:"我们要勇敢地尝试新事物。"},
-  "40395":{kw:"香",s:"淡淡的花香引来了许多蝴蝶。"},
-  "40396":{kw:"甜",s:"睡梦中的妹妹露出甜蜜的微笑。"},
-  "40397":{kw:"温",s:"今天的气温很适合春游。"},
-  "40398":{kw:"暖",s:"穿上毛衣，我觉得十分暖和。"},
-  "40399":{kw:"该",s:"我们应该爱护校园里的小树苗。"},
-  "40400":{kw:"颜",s:"美术课上，我用各种颜色的画笔画彩虹。"},
-  "40401":{kw:"因",s:"因为要考试，所以哥哥在认真复习。"},
-  "40402":{kw:"辆",s:"我有一辆崭新的自行车。"},
-  "40403":{kw:"匹",s:"草原上奔跑着许多马匹。"},
-  "40404":{kw:"册",s:"老师发了一本安全知识册子。"},
-  "40405":{kw:"支",s:"爸爸妈妈很支持我的学习。"},
-  "40406":{kw:"铅",s:"运动员扔铅球的姿势真帅。"},
-  "40407":{kw:"棵",s:"我家门前有一棵高大的榕树。"},
-  "40408":{kw:"架",s:"架子上爬满了绿色的藤蔓。"},
-  "40409":{kw:"块",s:"我用红色的方块搭积木。"},
-  "40410":{kw:"捉",s:"啄木鸟在大树上捕捉害虫。"},
-  "40411":{kw:"急",s:"消防车在执行紧急灭火任务。"},
-  "40412":{kw:"直",s:"我们可以坐高铁直达北京。"},
-  "40413":{kw:"河",s:"春天来了，河水开始慢慢流淌。"},
-  "40414":{kw:"行",s:"骆驼在无边无际的沙漠里行走。"},
-  "40415":{kw:"死",s:"很久没下雨，地上的小草都枯死了。"},
-  "40416":{kw:"信",s:"我相信努力就会有收获。"},
-  "40417":{kw:"跟",s:"小狗紧紧跟随在小主人身后。"},
-  "40418":{kw:"忽",s:"晴朗的天空忽然飘来一片乌云。"},
-  "40419":{kw:"喊",s:"对着空旷的大山呼喊，远处传来了回声。"},
-  "40420":{kw:"身",s:"早睡早起能让身体更强壮。"},
-  "40421":{kw:"窝",s:"树上有一个用树枝搭的鸟窝。"},
-  "40422":{kw:"孤",s:"小羊没有找到伙伴，觉得很孤单。"},
-  "40423":{kw:"单",s:"我可以单独完成这项手工任务。"},
-  "40424":{kw:"都",s:"北京是我们祖国美丽的首都。"},
-  "40425":{kw:"邻",s:"邻居家的叔叔是一个非常热心的人。"},
-  "40426":{kw:"居",s:"我们居住在一个美丽的星球。"},
-  "40427":{kw:"招",s:"小明站在远处，开心地向我招手。"},
-  "40428":{kw:"呼",s:"运动会上，我们为运动员欢呼加油。"},
-  "40429":{kw:"静",s:"课堂上，同学们安静地听老师讲课。"},
-  "40430":{kw:"怎",s:"不管怎样，我都要认真学习。"},
-  "40431":{kw:"独",s:"我独自完成了老师布置的作业。"},
-  "40432":{kw:"跳",s:"妹妹穿着裙子在客厅里跳舞。"},
-  "40433":{kw:"绳",s:"我们用长长的绳子玩拔河游戏。"},
-  "40434":{kw:"讲",s:"姐姐在台上进行了一场精彩的演讲。"},
-  "40435":{kw:"羽",s:"漂亮的孔雀有着五颜六色的羽毛。"},
-  "40436":{kw:"球",s:"下课了，我和伙伴们去操场踢足球。"},
-  "40437":{kw:"戏",s:"我喜欢看有趣的儿童戏剧。"},
-  "40438":{kw:"排",s:"放学了，大家排队整齐地走出校门。"},
-  "40439":{kw:"篮",s:"奶奶挎着篮子去菜市场买菜。"},
-  "40440":{kw:"连",s:"树上接连掉下来好几个大苹果。"},
-  "40441":{kw:"运",s:"坚持运动可以让身体变得强壮。"},
-  "40442":{kw:"夜",s:"宁静的夜晚，天上的星星在眨着小眼睛。"},
-  "40443":{kw:"思",s:"爸爸看着窗外的大雨陷入了沉思。"},
-  "40444":{kw:"床",s:"妈妈把洗干净的床单铺在床上。"},
-  "40445":{kw:"光",s:"柔和的月光像银纱一样洒在湖面上。"},
-  "40446":{kw:"疑",s:"课堂上有了疑问要勇敢向老师请教。"},
-  "40447":{kw:"举",s:"上课发言之前，我们需要先举手。"},
-  "40448":{kw:"望",s:"只要努力，就一定有成功的希望。"},
-  "40449":{kw:"低",s:"妹妹低头看着地上的小蚂蚁。"},
-  "40450":{kw:"故",s:"奶奶给我讲了一个有趣的童话故事。"},
-  "40451":{kw:"胆",s:"妹妹很胆小，不敢一个人睡。"},
-  "40452":{kw:"敢",s:"我们要敢于承认自己的错误。"},
-  "40453":{kw:"往",s:"奶奶和往常一样，在门口等我放学。"},
-  "40454":{kw:"外",s:"窗外有一棵高大的柳树在随风摇摆。"},
-  "40455":{kw:"勇",s:"勇敢的消防员叔叔救出了受困人员。"},
-  "40456":{kw:"窗",s:"妈妈给房间换上了新的窗帘。"},
-  "40457":{kw:"乱",s:"过马路时，千万不能到处乱跑。"},
-  "40458":{kw:"偏",s:"爸爸非常偏爱那盆红色的月季花。"},
-  "40459":{kw:"散",s:"晚饭后，我和爷爷去公园散步。"},
-  "40460":{kw:"原",s:"漂亮的蝴蝶原来是毛毛虫变的。"},
-  "40461":{kw:"像",s:"天空的白云好像一群小绵羊。"},
-  "40462":{kw:"微",s:"老师的微笑像春风一样很温暖。"},
-  "40463":{kw:"端",s:"写字时，我们要保持端正的坐姿。"},
-  "40464":{kw:"粽",s:"端午节那天，奶奶包了许多粽子。"},
-  "40465":{kw:"节",s:"我们要养成节约用水的好习惯。"},
-  "40466":{kw:"总",s:"老师让我们总结这学期的收获。"},
-  "40467":{kw:"米",s:"碗里的米粒像洁白的小珍珠一样。"},
-  "40468":{kw:"间",s:"我把自己的房间收拾得非常整洁。"},
-  "40469":{kw:"分",s:"我把蛋糕分享给我的小伙伴。"},
-  "40470":{kw:"豆",s:"奶奶在院子里种了一排黄豆。"},
-  "40471":{kw:"肉",s:"妈妈买了一些猪肉准备包饺子。"},
-  "40472":{kw:"带",s:"老师带领我们参观博物馆。"},
-  "40473":{kw:"知",s:"多读书能让我们学到很多知识。"},
-  "40474":{kw:"据",s:"警察找到了抓住小偷的重要证据。"},
-  "40475":{kw:"念",s:"我每天早晨都要大声念书。"},
-  "40476":{kw:"虹",s:"大雨过后，天空出现了一道彩虹。"},
-  "40477":{kw:"座",s:"我把座位让给了老奶奶。"},
-  "40478":{kw:"提",s:"课堂上要积极回答老师的提问。"},
-  "40479":{kw:"浇",s:"我每天都给阳台上的花浇水。"},
-  "40480":{kw:"洒",s:"运动员在操场上挥洒汗水。"},
-  "40481":{kw:"挑",s:"调皮的小猫正在用爪子挑逗毛线球。"},
-  "40482":{kw:"兴",s:"听到要去游乐园玩，弟弟很高兴。"},
-  "40483":{kw:"拿",s:"包饺子是奶奶的拿手绝活。"},
-  "40484":{kw:"镜",s:"爷爷戴着老花眼镜读报纸。"},
-  "40485":{kw:"照",s:"相册里有许多我小时候的照片。"},
-  "40486":{kw:"千",s:"操场上的秋千在风中轻轻地晃动。"},
-  "40487":{kw:"裙",s:"奶奶穿着围裙在厨房忙碌。"},
-  "40488":{kw:"眉",s:"奶奶笑起来，弯弯的眉毛像月牙。"},
-  "40489":{kw:"鼻",s:"大象用长长的鼻子卷起香蕉。"},
-  "40490":{kw:"嘴",s:"小鸟张开嘴巴，在树上快乐地唱歌。"},
-  "40491":{kw:"脖",s:"天鹅优雅地伸长了脖子。"},
-  "40492":{kw:"臂",s:"妈妈张开手臂把我拥入怀里。"},
-  "40493":{kw:"肚",s:"可爱的小猫躺在地上，露出肚皮。"},
-  "40494":{kw:"腿",s:"小兔子腿脚灵活，跑得飞快。"},
-  "40495":{kw:"脚",s:"听到上课铃响，同学们加快了脚步。"},
-  "40496":{kw:"蜻",s:"蜻蜓像一架小飞机在空中盘旋。"},
-  "40497":{kw:"蜓",s:"蜻蜓的翅膀在阳光下闪闪发光。"},
-  "40498":{kw:"迷",s:"小蚂蚁迷路了，急得团团转。"},
-  "40499":{kw:"藏",s:"爷爷喜欢收藏各种各样的字画。"},
-  "40500":{kw:"造",s:"我们用勤劳的双手创造美好生活。"}
-};
 const WORD_MAP={
   "1001":{kw:"name",zh:"名字",i12:null,i18:null,i25:"1001name.png"},
   "1002":{kw:"nice",zh:"令人愉快的；友好的",i12:null,i18:null,i25:"1002nice.png"},
@@ -1767,36 +1282,118 @@ function parseCsv(text){
   if(cell.length||row.length){row.push(cell);rows.push(row);}
   return rows;
 }
-async function readSheetRows(file){
+// ---- 导入表格弹窗 ----
+let _impWb=null,_impAllSheets={};
+
+function _impEmptyRatio(rows,colIdx){
+  let empty=0;
+  const body=rows.slice(1);
+  body.forEach(r=>{if(!(r[colIdx]||"").trim())empty++;});
+  return body.length?empty/body.length:1;
+}
+
+function _impSheetRows(sheetName){
+  if(!_impWb)return[];
+  const ws=_impWb.Sheets[sheetName];
+  return XLSX.utils.sheet_to_json(ws,{header:1,defval:""}).map(r=>r.map(c=>(c==null?"":String(c))));
+}
+
+function _impBuildUI(){
+  const sheetSel=document.getElementById("impSheetSelect");
+  const names=_impWb.SheetNames.filter(n=>!n.startsWith("【废弃】")&&!n.startsWith("#"));
+  sheetSel.innerHTML=names.map(n=>`<option value="${n}">${n}</option>`).join("");
+  // 优先选含"批量"/"生图"/"数据"/"清单"的 sheet
+  const preferred=names.find(n=>/批量|生图|数据|清单/i.test(n));
+  if(preferred)sheetSel.value=preferred;
+  _impUpdateCols();
+  sheetSel.onchange=_impUpdateCols;
+}
+
+function _impUpdateCols(){
+  const sheetName=document.getElementById("impSheetSelect").value;
+  const rows=_impSheetRows(sheetName).filter(r=>r.some(c=>(c||"").trim()));
+  if(!rows.length)return;
+  const header=rows[0].map((c,i)=>(c||"").trim()||(i===0?"(第1列)":"列"+(i+1)));
+  const maxCols=Math.max(...rows.map(r=>r.length));
+
+  // 计算每列空值比例
+  const empties=header.map((_,i)=>_impEmptyRatio(rows,i));
+
+  // ID列选择：优先找名含 输出文件名/序号/ID/编号/key 的非空列
+  const keySel=document.getElementById("impKeySelect");
+  keySel.innerHTML=header.map((h,i)=>`<option value="${i}" ${empties[i]>0.8?"style='opacity:.4'":""}>${h}${empties[i]>0.8?" (多空)":""}</option>`).join("");
+  const autoKey=header.findIndex(h=>/输出文件名|序号|编号|^id$|^key$/i.test(h));
+  keySel.value=autoKey>=0?autoKey:0;
+  keySel.onchange=_impRefreshPreview;
+
+  // 显示列：排除空列和ID列
+  const list=document.getElementById("impColList");
+  list.innerHTML=header.map((h,i)=>`
+    <label class="import-col-item${empties[i]>0.8?' empty-col':''}">
+      <input type="checkbox" data-col="${i}" ${i!==+keySel.value&&empties[i]<=0.8?"checked":""} />
+      ${h}${empties[i]>0.8?" 🚫":""}
+    </label>`).join("");
+  list.querySelectorAll("input").forEach(cb=>{
+    cb.addEventListener("change",_impRefreshPreview);
+  });
+  keySel.onchange=()=>{
+    // 取消勾选新 key 列，勾选原 key 列
+    list.querySelectorAll("input").forEach(cb=>{
+      const ci=+cb.dataset.col;
+      if(ci===+keySel.value)cb.checked=false;
+    });
+    _impRefreshPreview();
+  };
+  _impRefreshPreview();
+}
+
+function _impRefreshPreview(){
+  const sheetName=document.getElementById("impSheetSelect").value;
+  const rows=_impSheetRows(sheetName).filter(r=>r.some(c=>(c||"").trim()));
+  const keyCol=+document.getElementById("impKeySelect").value;
+  const selCols=[...document.querySelectorAll("#impColList input:checked")].map(cb=>+cb.dataset.col);
+  const header=rows[0]||[];
+  const preview=document.getElementById("impPreview");
+  const samples=rows.slice(1,4).map(r=>{
+    const key=(r[keyCol]||"").trim();
+    const vals=selCols.map(i=>(r[i]||"").trim().slice(0,20)).join(" · ");
+    return `<strong>${key}</strong> → ${vals}`;
+  });
+  const total=rows.slice(1).filter(r=>(r[keyCol]||"").trim()).length;
+  preview.innerHTML=`共 ${total} 行 · ID列：${header[keyCol]||"col"+keyCol}<br>${samples.join("<br>")}`;
+}
+
+async function openImportModal(file){
+  if(!currentProjectId||currentProjectId==="__uncat__"){showCopyToast("未分类项目不支持导入表格");return;}
   const name=(file.name||"").toLowerCase();
   if(name.endsWith(".xlsx")||name.endsWith(".xls")){
-    if(typeof XLSX==="undefined"){showCopyToast("xlsx 解析库未加载，请检查网络");return null;}
+    if(typeof XLSX==="undefined"){showCopyToast("xlsx 解析库未加载，请检查网络");return;}
     const buf=await file.arrayBuffer();
-    const wb=XLSX.read(buf,{type:"array"});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    return XLSX.utils.sheet_to_json(ws,{header:1,defval:""}).map(r=>r.map(c=>(c==null?"":String(c))));
+    _impWb=XLSX.read(buf,{type:"array"});
+    _impBuildUI();
+    document.getElementById("importModal").classList.add("open");
+  }else{
+    // CSV 直接用旧逻辑
+    const text=await file.text();
+    const rawRows=parseCsv(text);
+    _doImport(rawRows,0,[...Array(Math.max(...rawRows.map(r=>r.length))-1).keys()].map(i=>i+1));
   }
-  const text=await file.text();
-  return parseCsv(text);
 }
-async function importTableCsv(file){
-  if(!currentProjectId||currentProjectId==="__uncat__"){showCopyToast("未分类项目不支持导入表格");return;}
-  const rawRows=await readSheetRows(file);
-  if(!rawRows)return;
-  const rows=rawRows.filter(r=>r.some(c=>(c||"").trim()));
-  if(!rows.length){showCopyToast("表格为空");return;}
-  const first=rows[0].map(c=>(c||"").trim());
-  const hasHeader=first.some(c=>/序号|关键词|造句|中文|输出文件名|单词|key|sentence|id|word|名|号/i.test(c));
-  const maxCols=Math.max(...rows.map(r=>r.length));
-  let columns;
-  if(hasHeader){columns=first.slice(1).map((c,i)=>c||"列"+(i+1));}
-  else{columns=[];for(let i=1;i<maxCols;i++)columns.push("列"+i);}
-  const data={};
+
+async function _doImportFromModal(){
+  const sheetName=document.getElementById("impSheetSelect").value;
+  const rows=_impSheetRows(sheetName).filter(r=>r.some(c=>(c||"").trim()));
+  const keyCol=+document.getElementById("impKeySelect").value;
+  const selCols=[...document.querySelectorAll("#impColList input:checked")].map(cb=>+cb.dataset.col);
+  const header=rows[0]||[];
+  const hasHeader=header.some(h=>/序号|关键词|造句|中文|输出文件名|单词|key|sentence|id|word|名|号/i.test(h));
   const start=hasHeader?1:0;
+  const columns=selCols.map(i=>(header[i]||"列"+(i+1)));
+  const data={};
   for(let i=start;i<rows.length;i++){
     const r=rows[i].map(c=>(c||"").trim());
-    const k=r[0];if(!k)continue;
-    data[k]=r.slice(1);
+    const k=r[keyCol];if(!k)continue;
+    data[k]=selCols.map(i=>r[i]||"");
   }
   const count=Object.keys(data).length;
   if(!count){showCopyToast("没有解析到有效行");return;}
@@ -1805,9 +1402,15 @@ async function importTableCsv(file){
   if(error){showCopyToast("保存失败："+error.message);return;}
   currentProjectMeta=meta;
   document.getElementById("btnClearTable").style.display="";
+  document.getElementById("importModal").classList.remove("open");
   showCopyToast("已导入 "+count+" 行 · "+columns.length+" 列");
   if(currentView==="table")renderTable();
 }
+
+document.getElementById("btnImportConfirm").addEventListener("click",_doImportFromModal);
+document.getElementById("btnImportCancel").addEventListener("click",()=>document.getElementById("importModal").classList.remove("open"));
+document.getElementById("btnImportTable").addEventListener("click",()=>document.getElementById("tableFileInput").click());
+document.getElementById("tableFileInput").addEventListener("change",e=>{const f=e.target.files[0];if(f)openImportModal(f);e.target.value="";});
 async function clearProjectTable(){
   if(!currentProjectId)return;
   if(!confirm("确定清空当前项目的导入表格？"))return;
@@ -1818,9 +1421,7 @@ async function clearProjectTable(){
   showCopyToast("已清空表格");
   if(currentView==="table")renderTable();
 }
-document.getElementById("btnImportTable").addEventListener("click",()=>document.getElementById("tableFileInput").click());
-document.getElementById("tableFileInput").addEventListener("change",e=>{const f=e.target.files[0];if(f)importTableCsv(f);e.target.value="";});
-document.getElementById("btnClearTable").addEventListener("click",clearProjectTable);
+document.getElementById("btnClearTable").addEventListener("click",clearProjectTable);;
 
 function openProject(id,name){
   currentProjectId=id;currentProjectName=name;
@@ -2204,7 +1805,13 @@ function renderTable(){
     allDocs.forEach(d=>{const key=(d.filename||"").replace(/\.[^.]+$/,"").replace(/^.*[/\\]/,"");docMap[key]=d;});
     const searchQ=(document.getElementById("imgSearch")||{value:""}).value.trim().toLowerCase();
     let shown=0;
-    const sentenceSource=(currentProjectMeta&&currentProjectMeta.table)||SENTENCE_MAP;
+    const sentenceSource=currentProjectMeta&&currentProjectMeta.table;
+    if(!sentenceSource){
+      thead.innerHTML='';
+      document.getElementById('statusTbody').innerHTML='<tr><td colspan="5" style="text-align:center;padding:30px;color:#888">尚未导入表格，请点击"导入表格"按钮上传数据。</td></tr>';
+      statsBar.textContent='';
+      return;
+    }
     Object.keys(sentenceSource).sort().forEach(key=>{
       const item=docMap[key];const row=sentenceSource[key];
       const ist=item?itemStatus(item):"none";
@@ -2278,13 +1885,12 @@ function loadItem(item){
       modalSentence.style.display="block";
     }else{modalSentence.style.display="none";}
   }else{
-    let csvRow=SENTENCE_MAP[fnKey];
-    if(currentProjectMeta&&currentProjectMeta.table&&currentProjectMeta.table.rows){
-      const r=currentProjectMeta.table.rows[fnKey];
-      if(r)csvRow={kw:r[0]||"",s:r[1]||""};
-    }
-    if(csvRow){modalSentence.textContent="关键词："+csvRow.kw+"　｜　造句："+csvRow.s;modalSentence.style.display="block";}
-    else{modalSentence.style.display="none";}
+    const csvRow=(currentProjectMeta&&currentProjectMeta.table&&currentProjectMeta.table.rows&&currentProjectMeta.table.rows[fnKey])||null;
+    if(csvRow){
+      const kw2=csvRow[0]||'';const s2=csvRow[1]||'';
+      modalSentence.textContent=(kw2?'关键词：'+kw2:'')+(kw2&&s2?'　｜　':'')+(s2?'造句：'+s2:'');
+      modalSentence.style.display='block';
+    }else{modalSentence.style.display='none';}
   }
   modalUploader.textContent="上传人："+(item.replaced_by||item.uploader||"—")+"  |  状态："+statusLabel(itemStatus(item))+(item.claimed_by?"  |  认领："+item.claimed_by:"");
   commentInput.value="";replaceStatus.textContent="";commentInput.style.border="";
@@ -2373,5 +1979,27 @@ function fmt(iso){if(!iso)return"";const d=new Date(iso);return(d.getMonth()+1)+
 </script>
 <div id="copyToast"></div>
 <div id="reviewToast"></div>
+<div id="importModal">
+  <div class="import-box">
+    <h2>📥 导入表格配置</h2>
+    <div class="import-section" id="impSheetSection">
+      <label>选择 Sheet</label>
+      <select id="impSheetSelect"></select>
+    </div>
+    <div class="import-section">
+      <label>ID 列（用于匹配图片文件名）</label>
+      <select id="impKeySelect"></select>
+    </div>
+    <div class="import-section">
+      <label>显示列（可多选，空列已自动隐藏）</label>
+      <div class="import-col-list" id="impColList"></div>
+    </div>
+    <div id="impPreview" class="import-preview"></div>
+    <div class="import-actions">
+      <button class="btn-import-cancel" id="btnImportCancel">取消</button>
+      <button class="btn-import-confirm" id="btnImportConfirm">导入</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
