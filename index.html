@@ -1239,39 +1239,48 @@ document.querySelectorAll(".proj-filter-bar button").forEach(btn=>{
   btn.addEventListener("click",()=>{
     _projFilter=btn.dataset.pf;
     document.querySelectorAll(".proj-filter-bar button").forEach(b=>b.classList.toggle("active",b===btn));
-    loadProjects();
+    _applyProjFilter();
   });
 });
+function _applyProjFilter(){
+  document.querySelectorAll("#projectsGrid .folder-card").forEach(card=>{
+    const done=card.dataset.completed==="1";
+    if(_projFilter==="active")card.style.display=done?"none":"";
+    else if(_projFilter==="completed")card.style.display=done?"":"none";
+    else card.style.display="";
+  });
+}
 
 async function loadProjects(){
   try{
-  const{data:projects,error:pe}=await sb.from("projects").select("*").order("created_at",{ascending:false});
-  if(pe)throw pe;
-  const counts={};
-  const pending={};
-  const imgs=await fetchAllRows(()=>sb.from("images").select("id,project_id,status"));
-  (imgs||[]).forEach(img=>{
-    const k=img.project_id||"__uncat__";
-    counts[k]=(counts[k]||0)+1;
-    if(img.status==="pending")pending[k]=(pending[k]||0)+1;
-  });
-  projectsGrid.innerHTML="";
-  const ucTotal=counts["__uncat__"]||0;
-  const ucPending=pending["__uncat__"]||0;
-  if(ucTotal>0&&_projFilter!=="completed"){const card=makeProjectCard("__uncat__","未分类",ucTotal,ucPending,"系统","",false);projectsGrid.appendChild(card);}
-  (projects||[]).forEach(p=>{
-    const total=counts[p.id]||0;const pend=pending[p.id]||0;
-    const done=!!(p.metadata&&p.metadata.completed);
-    if(_projFilter==="active"&&done)return;
-    if(_projFilter==="completed"&&!done)return;
-    projectsGrid.appendChild(makeProjectCard(p.id,p.name,total,pend,p.created_by,p.created_at,done));
-  });
-  }catch(err){projectsGrid.innerHTML='<p style="color:red;padding:20px">加载失败：'+err.message+'</p>';console.error("loadProjects error",err);}
+    const{data:projects,error:pe}=await sb.from("projects").select("*").order("created_at",{ascending:false});
+    if(pe)throw pe;
+    const counts={};const pending={};
+    const imgs=await fetchAllRows(()=>sb.from("images").select("id,project_id,status"));
+    (imgs||[]).forEach(img=>{
+      const k=img.project_id||"__uncat__";
+      counts[k]=(counts[k]||0)+1;
+      if(img.status==="pending")pending[k]=(pending[k]||0)+1;
+    });
+    projectsGrid.innerHTML="";
+    const ucTotal=counts["__uncat__"]||0;const ucPending=pending["__uncat__"]||0;
+    if(ucTotal>0){const card=makeProjectCard("__uncat__","未分类",ucTotal,ucPending,"系统","",false);projectsGrid.appendChild(card);}
+    (projects||[]).forEach(p=>{
+      const total=counts[p.id]||0;const pend=pending[p.id]||0;
+      const done=!!(p.metadata&&p.metadata.completed);
+      projectsGrid.appendChild(makeProjectCard(p.id,p.name,total,pend,p.created_by,p.created_at,done));
+    });
+    _applyProjFilter();
+  }catch(err){
+    projectsGrid.innerHTML='<p style="color:red;padding:20px">加载失败：'+err.message+'</p>';
+    console.error("loadProjects error",err);
+  }
 }
 
 function makeProjectCard(id,name,total,pend,createdBy,createdAt,completed){
   const card=document.createElement("div");
   card.className="folder-card"+(completed?" completed":"");
+  card.dataset.completed=completed?"1":"0";
   const dateStr=createdAt?fmt(createdAt):"";
   card.innerHTML=(completed?'<div class="completed-badge">✓ 完结</div>':'')+'<div class="folder-icon">📁</div><div class="folder-name">'+name+'</div><div class="folder-stats"><span class="badge badge-pending">待审 '+pend+'</span><span class="badge" style="background:#e9ecef;color:#555">共 '+total+' 张</span></div><div class="folder-meta">'+(createdBy||"")+(dateStr?" · "+dateStr:"")+'</div>';
   card.addEventListener("click",()=>openProject(id,name));
