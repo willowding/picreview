@@ -1328,13 +1328,32 @@ function _impSheetRows(sheetName){
 
 function _impBuildUI(){
   const sheetSel=document.getElementById("impSheetSelect");
-  const names=_impWb.SheetNames.filter(n=>!n.startsWith("【废弃】")&&!n.startsWith("#"));
+  const allNames=_impWb.SheetNames;
+  const names=allNames.filter(n=>!n.startsWith("【废弃】")&&!n.startsWith("#"));
   sheetSel.innerHTML=names.map(n=>`<option value="${n}">${n}</option>`).join("");
-  // 优先选含"批量"/"生图"/"数据"/"清单"的 sheet
   const preferred=names.find(n=>/批量|生图|数据|清单/i.test(n));
   if(preferred)sheetSel.value=preferred;
   _impUpdateCols();
   sheetSel.onchange=_impUpdateCols;
+  // 「补充列」Sheet 下拉
+  const extraSheet=document.getElementById("impExtraSheet");
+  extraSheet.innerHTML=allNames.map(n=>`<option value="${n}">${n}</option>`).join("");
+  // 默认选主 Sheet 的前一个
+  const mainIdx=allNames.indexOf(sheetSel.value);
+  if(mainIdx>0)extraSheet.value=allNames[mainIdx-1];
+  extraSheet.onchange=_impUpdateExtraCols;
+  _impUpdateExtraCols();
+  const chk=document.getElementById("impExtraEnabled");
+  chk.onchange=()=>{document.getElementById("impExtraOptions").style.display=chk.checked?"block":"none";};
+}
+
+function _impUpdateExtraCols(){
+  const sn=document.getElementById("impExtraSheet").value;
+  const rows=_impSheetRows(sn);
+  if(!rows.length)return;
+  const header=rows[0].map((c,i)=>(c||"").trim()||(i===0?"(第1列)":"列"+(i+1)));
+  const sel=document.getElementById("impExtraCol");
+  sel.innerHTML=header.map((h,i)=>`<option value="${i}">${h}</option>`).join("");
 }
 
 function _impUpdateCols(){
@@ -1417,11 +1436,29 @@ async function _doImportFromModal(){
   const hasHeader=header.some(h=>/序号|关键词|造句|中文|输出文件名|单词|key|sentence|id|word|名|号/i.test(h));
   const start=hasHeader?1:0;
   const columns=selCols.map(i=>(header[i]||"列"+(i+1)));
+  // 检查是否启用「补充列」
+  const extraEnabled=document.getElementById("impExtraEnabled").checked;
+  let extraRows=null,extraColIdx=0,extraLabel="";
+  if(extraEnabled){
+    const extraSn=document.getElementById("impExtraSheet").value;
+    extraColIdx=+document.getElementById("impExtraCol").value;
+    extraLabel=document.getElementById("impExtraLabel").value.trim()||("补充列");
+    const rawExtra=_impSheetRows(extraSn).filter(r=>r.some(c=>(c||"").trim()));
+    // 对齐：从 start 行开始，按行号对应主 sheet
+    extraRows=rawExtra;
+    columns.push(extraLabel);
+  }
   const data={};
   for(let i=start;i<rows.length;i++){
     const r=rows[i].map(c=>(c||"").trim());
     const k=r[keyCol];if(!k)continue;
-    data[k]=selCols.map(i=>r[i]||"");
+    const vals=selCols.map(ci=>r[ci]||"");
+    if(extraRows){
+      // 行号对齐：主 sheet 第 i 行对应 extra 第 i 行（含 header 偏移）
+      const eRow=extraRows[i]||[];
+      vals.push((eRow[extraColIdx]||"").trim());
+    }
+    data[k]=vals;
   }
   const count=Object.keys(data).length;
   if(!count){showCopyToast("没有解析到有效行");return;}
@@ -2021,6 +2058,19 @@ function fmt(iso){if(!iso)return"";const d=new Date(iso);return(d.getMonth()+1)+
     <div class="import-section">
       <label>显示列（可多选，空列已自动隐藏）</label>
       <div class="import-col-list" id="impColList"></div>
+    </div>
+    <div class="import-section" style="border-top:1px dashed #c8d3e8;padding-top:10px;margin-top:4px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="impExtraEnabled" style="width:14px;height:14px" />
+        从其他 Sheet 补充一列（适用于跨 Sheet 引用的列）
+      </label>
+      <div id="impExtraOptions" style="display:none;margin-top:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select id="impExtraSheet" style="flex:1;min-width:120px"></select>
+          <select id="impExtraCol" style="flex:1;min-width:120px"></select>
+          <input id="impExtraLabel" placeholder="列名（如：造句）" style="flex:1;min-width:100px;padding:4px 8px;border:1px solid #c8d3e8;border-radius:4px" />
+        </div>
+      </div>
     </div>
     <div id="impPreview" class="import-preview"></div>
     <div class="import-actions">
