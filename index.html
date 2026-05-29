@@ -322,6 +322,16 @@ main{padding:24px}
   </div>
 </div>
 <script type="module">
+window.addEventListener("error",e=>{
+  let box=document.getElementById("__errbox");
+  if(!box){box=document.createElement("div");box.id="__errbox";box.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99999;background:#b00020;color:#fff;padding:10px 16px;font:13px/1.5 monospace;white-space:pre-wrap;max-height:40vh;overflow:auto";document.body.appendChild(box);}
+  box.textContent="JS 错误：\n"+(e.message||e.error&&e.error.message||"")+"\n"+(e.filename||"")+":"+(e.lineno||"")+"\n"+((e.error&&e.error.stack)||"");
+});
+window.addEventListener("unhandledrejection",e=>{
+  let box=document.getElementById("__errbox");
+  if(!box){box=document.createElement("div");box.id="__errbox";box.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99999;background:#b00020;color:#fff;padding:10px 16px;font:13px/1.5 monospace;white-space:pre-wrap;max-height:40vh;overflow:auto";document.body.appendChild(box);}
+  box.textContent="Promise 错误：\n"+((e.reason&&(e.reason.message||e.reason))||e.reason)+"\n"+((e.reason&&e.reason.stack)||"");
+});
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 const WORD_MAP={
   "1001":{kw:"name",zh:"名字",i12:null,i18:null,i25:"1001name.png"},
